@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Khách Hàng - Demo</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 60px auto; padding: 20px; color: #333; }
+    h1 { color: #1e293b; }
+    .card { background: #f8fafc; border-radius: 12px; padding: 24px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <h1>🏢 Website Demo Công Ty ABC</h1>
+  <div class="card">
+    <h2>Về chúng tôi</h2>
+    <p>Đây là trang web demo để test chatbot. Nhấn vào nút chat ở góc phải bên dưới.</p>
+  </div>
+  <div class="card">
+    <h2>Sản phẩm & Dịch vụ</h2>
+    <p>Chatbot AI được train trên tài liệu của bạn và sẽ trả lời chính xác các câu hỏi của khách hàng.</p>
+  </div>
+
+  <!--
+    HƯỚNG DẪN NHÚNG VÀO WEBSITE:
+    1. Thay YOUR_API_KEY bằng API key lấy từ dashboard
+    2. Thay YOUR_SERVER_URL bằng URL server backend
+    3. Copy đoạn script này vào trước </body>
+  -->
+  <script
+    src="chatbot-widget.js"
+    data-api-key="45DoBdVGQ5YKWjrxE0Lvr4OQw1kI6pfZdLpiJeMdW0w"
+    data-api-url="http://localhost:8000">
+  </script>
+</body>
+</html>

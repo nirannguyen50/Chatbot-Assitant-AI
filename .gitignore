@@ -1,0 +1,73 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.pyo
+
+# ── Virtual Environment ────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env_backup
+
+# ── Environment Variables (SECRETS) ───────────────────────────────────────────
+.env
+*.env
+backend/.env
+backend/app/.env
+
+# ── Database ───────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+chatbot.db
+
+# ── ChromaDB vector store ──────────────────────────────────────────────────────
+chroma_db/
+backend/chroma_db/
+
+# ── Uploaded files ─────────────────────────────────────────────────────────────
+uploads/
+backend/uploads/
+
+# ── ngrok & tunnels ────────────────────────────────────────────────────────────
+ngrok.exe
+ngrok
+*.ngrok.yml
+ngrok-stable-windows-amd64.zip
+
+# ── IDE & Editor ───────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+.claude/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+desktop.ini
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# ── Pytest ────────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── MyPy ──────────────────────────────────────────────────────────────────────
+.mypy_cache/

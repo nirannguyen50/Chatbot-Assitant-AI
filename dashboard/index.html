@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chatbot Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+
+  /* ── Auth ── */
+  #auth-screen {
+    display: flex; align-items: center; justify-content: center; min-height: 100vh;
+  }
+  .auth-card {
+    background: #fff; border-radius: 16px; padding: 40px; width: 380px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  }
+  .auth-card h1 { font-size: 22px; margin-bottom: 6px; }
+  .auth-card p  { color: #64748b; font-size: 14px; margin-bottom: 28px; }
+  .auth-tabs { display: flex; gap: 4px; margin-bottom: 24px; background: #f1f5f9; border-radius: 8px; padding: 4px; }
+  .auth-tab  { flex: 1; padding: 8px; border: none; background: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; color: #64748b; }
+  .auth-tab.active { background: #fff; color: #4F46E5; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+  /* ── Forms ── */
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151; }
+  input[type=text], input[type=email], input[type=password], input[type=color], textarea, select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 8px;
+    font-size: 14px; outline: none; transition: border-color .15s; background: #fff;
+  }
+  input:focus, textarea:focus { border-color: #4F46E5; }
+  textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px;
+    border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .15s;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: #4F46E5; color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #4338CA; }
+  .btn-danger  { background: #fee2e2; color: #dc2626; }
+  .btn-danger:hover:not(:disabled) { background: #fecaca; }
+  .btn-ghost   { background: #f1f5f9; color: #374151; }
+  .btn-ghost:hover:not(:disabled) { background: #e2e8f0; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-full { width: 100%; justify-content: center; }
+
+  /* ── App shell ── */
+  #app-screen { display: none; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
+    background: #fff; border-right: 1px solid #e2e8f0; padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .sidebar-logo { font-weight: 700; font-size: 17px; color: #4F46E5; padding: 8px 8px 16px; border-bottom: 1px solid #e2e8f0; margin-bottom: 8px; }
+  .sidebar-user { font-size: 13px; color: #64748b; padding: 4px 8px; margin-bottom: 4px; }
+  .sidebar-btn {
+    padding: 10px 12px; border-radius: 8px; border: none; text-align: left;
+    font-size: 14px; cursor: pointer; background: none; color: #374151; width: 100%;
+    transition: background .1s;
+  }
+  .sidebar-btn:hover  { background: #f1f5f9; }
+  .sidebar-btn.active { background: #EEF2FF; color: #4F46E5; font-weight: 500; }
+  .sidebar-spacer { flex: 1; }
+  .main { margin-left: 240px; padding: 32px; }
+
+  /* ── Panels ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
+
+  /* ── Bot list ── */
+  .bot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .bot-card {
+    background: #fff; border-radius: 12px; padding: 20px; border: 1.5px solid #e2e8f0;
+    cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  }
+  .bot-card:hover { border-color: #4F46E5; box-shadow: 0 2px 12px rgba(79,70,229,.1); }
+  .bot-card-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .bot-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .bot-card-desc { font-size: 13px; color: #64748b; margin-bottom: 12px; }
+  .bot-card-key  { font-size: 11px; color: #94a3b8; font-family: monospace; word-break: break-all; }
+  .add-card {
+    background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 20px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    color: #64748b; font-size: 14px; cursor: pointer; min-height: 120px;
+    transition: border-color .15s, color .15s;
+  }
+  .add-card:hover { border-color: #4F46E5; color: #4F46E5; }
+
+  /* ── Bot detail ── */
+  .back-btn { background: none; border: none; color: #4F46E5; font-size: 14px; cursor: pointer; margin-bottom: 16px; display: flex; align-items: center; gap: 4px; }
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 24px; }
+  .tab { padding: 10px 20px; border: none; background: none; font-size: 14px; cursor: pointer; color: #64748b; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .tab.active { color: #4F46E5; border-bottom-color: #4F46E5; font-weight: 500; }
+
+  /* ── Documents ── */
+  .upload-zone {
+    border: 2px dashed #cbd5e1; border-radius: 12px; padding: 32px; text-align: center;
+    color: #64748b; cursor: pointer; transition: border-color .15s, background .15s; margin-bottom: 20px;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: #4F46E5; background: #EEF2FF; }
+  .upload-zone .icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-zone p { font-size: 14px; margin-bottom: 4px; }
+  .upload-zone small { font-size: 12px; color: #94a3b8; }
+  #file-input { display: none; }
+
+  .doc-list { display: flex; flex-direction: column; gap: 10px; }
+  .doc-item {
+    background: #fff; border-radius: 10px; padding: 14px 16px;
+    border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px;
+  }
+  .doc-icon { font-size: 22px; flex-shrink: 0; }
+  .doc-info { flex: 1; min-width: 0; }
+  .doc-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+  .badge {
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; flex-shrink: 0;
+  }
+  .badge-pending    { background: #fef3c7; color: #92400e; }
+  .badge-processing { background: #dbeafe; color: #1e40af; }
+  .badge-ready      { background: #dcfce7; color: #166534; }
+  .badge-error      { background: #fee2e2; color: #dc2626; }
+
+  /* ── Embed code ── */
+  .code-block {
+    background: #0f172a; color: #e2e8f0; padding: 20px; border-radius: 10px;
+    font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6;
+    white-space: pre-wrap; word-break: break-all; margin-bottom: 12px;
+  }
+
+  /* ── Chat test ── */
+  .chat-test { max-width: 600px; }
+  .chat-box { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px; height: 380px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+  .msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: #4F46E5; color: #fff; border-bottom-right-radius: 3px; }
+  .msg.bot  { align-self: flex-start; background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 3px; }
+  .msg.typing { color: #94a3b8; font-style: italic; }
+  .msg.user img { max-width: 200px; max-height: 180px; border-radius: 8px; display: block; margin-bottom: 4px; cursor: pointer; }
+
+  /* ── Chat attach preview ── */
+  .chat-attach-bar {
+    display: none; align-items: center; gap: 8px;
+    padding: 8px 12px; background: #f8fafc;
+    border: 1.5px solid #e2e8f0; border-radius: 8px; margin-bottom: 6px;
+  }
+  .chat-attach-bar.show { display: flex; }
+  .chat-attach-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0; flex-shrink: 0; }
+  .chat-attach-info { flex: 1; font-size: 12px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-attach-rm { background: #fee2e2; border: none; border-radius: 50%; cursor: pointer; width: 22px; height: 22px; font-size: 12px; color: #dc2626; flex-shrink: 0; }
+  .chat-attach-rm:hover { background: #fecaca; }
+
+  /* ── Chat input row ── */
+  .chat-input-row { display: flex; gap: 8px; align-items: center; }
+  .chat-clip {
+    padding: 9px 11px; border: 1.5px solid #e2e8f0; border-radius: 8px;
+    background: #f8fafc; color: #64748b; cursor: pointer; font-size: 15px;
+    flex-shrink: 0; transition: background .15s, border-color .15s, color .15s;
+  }
+  .chat-clip:hover:not(:disabled) { background: #EEF2FF; border-color: #4F46E5; color: #4F46E5; }
+  .chat-clip:disabled { opacity: .4; cursor: not-allowed; }
+  .chat-input-row input { flex: 1; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none; }
+  .chat-input-row input:focus { border-color: #4F46E5; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #1e293b; color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 14px;
+    transition: transform .3s; z-index: 99999; pointer-events: none; white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.error { background: #dc2626; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px; padding: 32px; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 18px; margin-bottom: 20px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-state { text-align: center; padding: 48px; color: #94a3b8; font-size: 14px; }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Markdown trong chat ── */
+  .msg.bot p, .hist-msg.bot p { margin: 2px 0; }
+  .msg.bot ul, .msg.bot ol, .hist-msg.bot ul, .hist-msg.bot ol { padding-left: 20px; margin: 4px 0; }
+  .msg.bot li, .hist-msg.bot li { margin: 2px 0; }
+  .msg.bot h1, .msg.bot h2, .msg.bot h3,
+  .hist-msg.bot h1, .hist-msg.bot h2, .hist-msg.bot h3 { font-size: 14px; font-weight: 700; margin: 4px 0 2px; }
+  .msg.bot code, .hist-msg.bot code { background: rgba(0,0,0,0.08); border-radius: 3px; padding: 1px 5px; font-family: monospace; font-size: 12px; }
+  .msg.bot pre, .hist-msg.bot pre { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 10px 12px; margin: 6px 0; overflow-x: auto; font-size: 12px; line-height: 1.5; }
+  .msg.bot pre code, .hist-msg.bot pre code { background: none; padding: 0; color: inherit; }
+  .msg.bot table, .hist-msg.bot table { border-collapse: collapse; width: 100%; font-size: 12px; margin: 4px 0; }
+  .msg.bot th, .msg.bot td, .hist-msg.bot th, .hist-msg.bot td { border: 1px solid #e2e8f0; padding: 4px 8px; text-align: left; }
+  .msg.bot th, .hist-msg.bot th { background: #f8fafc; font-weight: 600; }
+  .msg.bot a, .hist-msg.bot a { color: #4F46E5; }
+  .msg.bot strong, .hist-msg.bot strong { font-weight: 700; }
+  .msg.bot blockquote, .hist-msg.bot blockquote { border-left: 3px solid #e2e8f0; padding-left: 10px; margin: 4px 0; color: #64748b; font-style: italic; }
+
+  /* ── Conversation History ── */
+  .conv-list { display: flex; flex-direction: column; gap: 8px; max-width: 780px; }
+  .conv-item { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; }
+  .conv-header {
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+    cursor: pointer; transition: background .1s; user-select: none;
+  }
+  .conv-header:hover { background: #f8fafc; }
+  .conv-icon { font-size: 18px; flex-shrink: 0; }
+  .conv-date { font-size: 14px; font-weight: 500; color: #1e293b; flex: 1; }
+  .conv-ago  { font-size: 12px; color: #94a3b8; }
+  .conv-count { font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 20px; }
+  .conv-chevron { font-size: 11px; color: #94a3b8; transition: transform .2s; flex-shrink: 0; }
+  .conv-chevron.open { transform: rotate(180deg); }
+  .conv-del { background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; }
+  .conv-del:hover { color: #dc2626; background: #fee2e2; }
+  .conv-body {
+    display: none; padding: 12px 16px; display: none;
+    flex-direction: column; gap: 8px; border-top: 1px solid #f1f5f9;
+    max-height: 400px; overflow-y: auto;
+  }
+  .conv-body.open { display: flex; }
+  .hist-msg { max-width: 80%; padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; word-break: break-word; }
+  .hist-msg.user { align-self: flex-end; background: #4F46E5; color: #fff; border-bottom-right-radius: 3px; }
+  .hist-msg.bot  { align-self: flex-start; background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 3px; }
+  .conv-loading  { color: #94a3b8; font-size: 13px; font-style: italic; padding: 4px 0; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js" onload="marked.setOptions({breaks:true,gfm:true})"></script>
+</head>
+<body>
+
+<!-- ═══════════════ AUTH SCREEN ═══════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <h1>🤖 Chatbot Platform</h1>
+    <p>Quản lý chatbot AI cho doanh nghiệp của bạn</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Đăng nhập</button>
+      <button class="auth-tab" onclick="switchTab('register')">Đăng ký</button>
+    </div>
+
+    <!-- Login -->
+    <div id="tab-login">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@company.com">
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn btn-primary btn-full" id="login-btn" onclick="doLogin()">Đăng nhập</button>
+    </div>
+
+    <!-- Register -->
+    <div id="tab-register" style="display:none">
+      <div class="form-group">
+        <label>Họ tên</label>
+        <input type="text" id="reg-name" placeholder="Nguyễn Văn A">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@company.com">
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="reg-pass" placeholder="Tối thiểu 6 ký tự" onkeydown="if(event.key==='Enter')doRegister()">
+      </div>
+      <button class="btn btn-primary btn-full" id="reg-btn" onclick="doRegister()">Tạo tài khoản</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ APP SCREEN ═══════════════ -->
+<div id="app-screen">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">🤖 Chatbot Platform</div>
+    <div class="sidebar-user" id="sidebar-user"></div>
+    <button class="sidebar-btn active" id="nav-bots" onclick="showPanel('bots')">📦 Chatbots của tôi</button>
+    <div class="sidebar-spacer"></div>
+    <button class="sidebar-btn" onclick="doLogout()">🚪 Đăng xuất</button>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+
+    <!-- Panel: Bot list -->
+    <div class="panel active" id="panel-bots">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+        <div class="page-title" style="margin:0">📦 Chatbots của tôi</div>
+        <button class="btn btn-primary" onclick="openCreateModal()" style="font-size:15px; padding:12px 22px;">
+          ➕ Tạo chatbot mới
+        </button>
+      </div>
+      <div class="bot-grid" id="bot-grid"></div>
+    </div>
+
+    <!-- Panel: Bot detail -->
+    <div class="panel" id="panel-detail">
+      <button class="back-btn" onclick="showPanel('bots')">← Quay lại</button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <div id="detail-dot" class="bot-dot" style="width:14px;height:14px"></div>
+        <div class="page-title" id="detail-name" style="margin:0"></div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="openEditModal()">✏️ Sửa</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete()">🗑️ Xóa</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchDetailTab('docs')">📄 Tài liệu</button>
+        <button class="tab" onclick="switchDetailTab('chat')">💬 Test Chat</button>
+        <button class="tab" onclick="switchDetailTab('embed')">🔗 Nhúng Widget</button>
+        <button class="tab" onclick="switchDetailTab('history')">📋 Lịch sử</button>
+      </div>
+
+      <!-- Tab: Documents -->
+      <div id="dtab-docs">
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+          <div class="icon">📁</div>
+          <p>Kéo thả file vào đây hoặc nhấn để chọn</p>
+          <small>Hỗ trợ: PDF, DOCX, XLSX, XLS, CSV, TXT — Tối đa 50MB</small>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt" multiple onchange="uploadFiles(this.files)">
+        <div class="doc-list" id="doc-list">
+          <div class="empty-state"><div class="icon">📂</div>Chưa có tài liệu nào</div>
+        </div>
+      </div>
+
+      <!-- Tab: Chat test -->
+      <div id="dtab-chat" style="display:none">
+        <div class="chat-test">
+          <div class="chat-box" id="chat-box"></div>
+
+          <!-- Attach preview bar -->
+          <div class="chat-attach-bar" id="test-attach-bar">
+            <img id="test-attach-thumb" class="chat-attach-thumb" src="" alt="">
+            <span id="test-attach-info" class="chat-attach-info"></span>
+            <button class="chat-attach-rm" onclick="clearTestAttach()" title="Xóa ảnh">✕</button>
+          </div>
+
+          <!-- Input row -->
+          <div class="chat-input-row">
+            <button class="chat-clip" id="test-clip" onclick="document.getElementById('test-file-input').click()" title="Đính kèm ảnh">📎</button>
+            <input type="file" id="test-file-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none">
+            <input type="text" id="chat-input" placeholder="Nhập câu hỏi để test..." onkeydown="if(event.key==='Enter')sendTestChat()">
+            <button class="btn btn-primary" onclick="sendTestChat()">Gửi ➤</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: History -->
+      <div id="dtab-history" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <p style="color:#64748b;font-size:14px;">Lịch sử các cuộc hội thoại với khách</p>
+          <button class="btn btn-ghost btn-sm" onclick="loadHistory()">🔄 Làm mới</button>
+        </div>
+        <div id="history-list"></div>
+      </div>
+
+      <!-- Tab: Embed -->
+      <div id="dtab-embed" style="display:none">
+        <p style="margin-bottom:16px;color:#64748b;font-size:14px;">Copy đoạn code sau và dán vào trước thẻ <code>&lt;/body&gt;</code> trên website của bạn:</p>
+        <div class="code-block" id="embed-code"></div>
+        <button class="btn btn-ghost" onclick="copyEmbed()">📋 Copy code</button>
+        <div style="margin-top:24px;padding:16px;background:#fefce8;border-radius:10px;border:1px solid #fde68a;">
+          <p style="font-size:13px;color:#92400e;font-weight:500;">💡 Lưu ý bảo mật</p>
+          <p style="font-size:13px;color:#78350f;margin-top:4px;">API key chỉ hoạt động với domain của bạn. Nếu bị lộ, hãy tạo key mới từ nút <strong>Tạo API key mới</strong>.</p>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="regenKey()">🔄 Tạo API key mới</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ MODALS ═══════════════ -->
+
+<!-- Create / Edit bot modal -->
+<div class="modal-overlay" id="modal-bot">
+  <div class="modal">
+    <h2 id="modal-bot-title">Tạo chatbot mới</h2>
+    <div class="form-group">
+      <label>Tên chatbot *</label>
+      <input type="text" id="bot-name" placeholder="VD: Trợ lý CSKH Công ty ABC">
+    </div>
+    <div class="form-group">
+      <label>Mô tả</label>
+      <input type="text" id="bot-desc" placeholder="VD: Bot hỗ trợ khách hàng 24/7">
+    </div>
+    <div class="form-group">
+      <label>System prompt <small style="color:#94a3b8">(hướng dẫn cho AI)</small></label>
+      <textarea id="bot-prompt" placeholder="VD: Bạn là trợ lý AI của Công ty ABC, chuyên tư vấn về sản phẩm và dịch vụ. Hãy trả lời lịch sự và chuyên nghiệp."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Lời chào</label>
+      <input type="text" id="bot-welcome" placeholder="Xin chào! Tôi có thể giúp gì cho bạn?">
+    </div>
+    <div class="form-group">
+      <label>Màu chủ đạo</label>
+      <input type="color" id="bot-color" value="#4F46E5" style="height:40px;cursor:pointer;">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bot')">Hủy</button>
+      <button class="btn btn-primary" id="bot-save-btn" onclick="saveBot()">Tạo chatbot</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────
+const API = "http://localhost:8000/api";
+
+// ─── State ────────────────────────────────────────────────────────────────
+let token = localStorage.getItem("token") || "";
+let currentUser = null;
+let currentBot  = null;
+let isEditing   = false;
+let chatHistory      = [];
+let chatSummary      = "";   // Running summary cho test chat
+let testSessionId    = "";   // UUID phiên test chat để lưu history
+let testAttachedImg  = "";   // URL ảnh đã upload, chờ gửi (test chat)
+let pollTimer        = null;
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+window.onload = async () => {
+  if (token) {
+    const ok = await fetchMe();
+    if (ok) { showApp(); return; }
+  }
+  showAuth();
+};
+
+// ─── Auth ──────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById("tab-login").style.display    = tab === "login" ? "" : "none";
+  document.getElementById("tab-register").style.display = tab === "register" ? "" : "none";
+  document.querySelectorAll(".auth-tab").forEach((el, i) => el.classList.toggle("active", (i === 0) === (tab === "login")));
+}
+
+async function doLogin() {
+  const email = document.getElementById("login-email").value.trim();
+  const pass  = document.getElementById("login-pass").value;
+  if (!email || !pass) { showToast("Vui lòng nhập đầy đủ thông tin", true); return; }
+
+  setLoading("login-btn", true, "Đang đăng nhập...");
+  const res = await api("POST", "/auth/login", { email, password: pass });
+  setLoading("login-btn", false, "Đăng nhập");
+
+  if (res.ok) {
+    token = res.data.access_token;
+    localStorage.setItem("token", token);
+    await fetchMe();
+    showApp();
+  } else {
+    showToast(res.data?.detail || "Email hoặc mật khẩu không đúng", true);
+  }
+}
+
+async function doRegister() {
+  const name  = document.getElementById("reg-name").value.trim();
+  const email = document.getElementById("reg-email").value.trim();
+  const pass  = document.getElementById("reg-pass").value;
+  if (!name || !email || !pass) { showToast("Vui lòng nhập đầy đủ thông tin", true); return; }
+  if (pass.length < 6) { showToast("Mật khẩu tối thiểu 6 ký tự", true); return; }
+
+  setLoading("reg-btn", true, "Đang tạo tài khoản...");
+  const res = await api("POST", "/auth/register", { email, full_name: name, password: pass });
+  setLoading("reg-btn", false, "Tạo tài khoản");
+
+  if (res.ok) {
+    showToast("Tạo tài khoản thành công! Đang đăng nhập...");
+    document.getElementById("login-email").value = email;
+    document.getElementById("login-pass").value  = pass;
+    switchTab("login");
+    setTimeout(doLogin, 800);
+  } else {
+    showToast(res.data?.detail || "Đăng ký thất bại", true);
+  }
+}
+
+async function fetchMe() {
+  const res = await api("GET", "/auth/me");
+  if (res.ok) { currentUser = res.data; return true; }
+  token = ""; localStorage.removeItem("token"); return false;
+}
+
+function doLogout() {
+  token = ""; localStorage.removeItem("token");
+  currentBot = null; clearInterval(pollTimer);
+  showAuth();
+}
+
+// ─── Layout ────────────────────────────────────────────────────────────────
+function showAuth() {
+  document.getElementById("auth-screen").style.display = "flex";
+  document.getElementById("app-screen").style.display  = "none";
+}
+
+function showApp() {
+  document.getElementById("auth-screen").style.display = "none";
+  document.getElementById("app-screen").style.display  = "block";
+  document.getElementById("sidebar-user").textContent  = currentUser?.email || "";
+  loadBots();
+}
+
+function showPanel(name) {
+  clearInterval(pollTimer);
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  document.getElementById("panel-" + name).classList.add("active");
+  document.querySelectorAll(".sidebar-btn[id^='nav-']").forEach(b => b.classList.remove("active"));
+  const nav = document.getElementById("nav-" + name);
+  if (nav) nav.classList.add("active");
+  if (name === "bots") loadBots();
+}
+
+// ─── Bots ──────────────────────────────────────────────────────────────────
+async function loadBots() {
+  const res = await api("GET", "/chatbots");
+  if (!res.ok) return;
+  renderBots(res.data);
+}
+
+function renderBots(bots) {
+  const grid = document.getElementById("bot-grid");
+  if (!bots.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🤖</div>Chưa có chatbot nào. Nhấn <strong>Tạo chatbot mới</strong> để bắt đầu!</div>`;
+    return;
+  }
+  grid.innerHTML = "";
+  bots.forEach(bot => {
+    const card = document.createElement("div");
+    card.className = "bot-card";
+    card.innerHTML = `
+      <div class="bot-card-name">
+        <div class="bot-dot" style="background:${bot.primary_color}"></div>
+        ${esc(bot.name)}
+      </div>
+      <div class="bot-card-desc">${esc(bot.description || "Chưa có mô tả")}</div>
+      <div class="bot-card-key">🔑 ${bot.api_key.substring(0, 20)}...</div>
+    `;
+    card.onclick = () => openBotDetail(bot);
+    grid.appendChild(card);
+  });
+}
+
+// ─── Create / Edit Bot ─────────────────────────────────────────────────────
+function openCreateModal() {
+  isEditing = false;
+  document.getElementById("modal-bot-title").textContent = "Tạo chatbot mới";
+  document.getElementById("bot-save-btn").textContent    = "Tạo chatbot";
+  document.getElementById("bot-name").value    = "";
+  document.getElementById("bot-desc").value    = "";
+  document.getElementById("bot-prompt").value  = "";
+  document.getElementById("bot-welcome").value = "Xin chào! Tôi có thể giúp gì cho bạn?";
+  document.getElementById("bot-color").value   = "#4F46E5";
+  openModal("modal-bot");
+}
+
+function openEditModal() {
+  if (!currentBot) return;
+  isEditing = true;
+  document.getElementById("modal-bot-title").textContent = "Chỉnh sửa chatbot";
+  document.getElementById("bot-save-btn").textContent    = "Lưu thay đổi";
+  document.getElementById("bot-name").value    = currentBot.name;
+  document.getElementById("bot-desc").value    = currentBot.description || "";
+  document.getElementById("bot-prompt").value  = currentBot.system_prompt || "";
+  document.getElementById("bot-welcome").value = currentBot.welcome_message;
+  document.getElementById("bot-color").value   = currentBot.primary_color;
+  openModal("modal-bot");
+}
+
+async function saveBot() {
+  const name = document.getElementById("bot-name").value.trim();
+  if (!name) { showToast("Vui lòng nhập tên chatbot", true); return; }
+
+  const payload = {
+    name,
+    description:     document.getElementById("bot-desc").value.trim(),
+    system_prompt:   document.getElementById("bot-prompt").value.trim(),
+    welcome_message: document.getElementById("bot-welcome").value.trim() || "Xin chào!",
+    primary_color:   document.getElementById("bot-color").value,
+  };
+
+  setLoading("bot-save-btn", true, "Đang lưu...");
+
+  let res;
+  if (isEditing) {
+    res = await api("PUT", `/chatbots/${currentBot.id}`, payload);
+  } else {
+    res = await api("POST", "/chatbots", payload);
+  }
+
+  setLoading("bot-save-btn", false, isEditing ? "Lưu thay đổi" : "Tạo chatbot");
+
+  if (res.ok) {
+    closeModal("modal-bot");
+    showToast(isEditing ? "Đã cập nhật chatbot!" : "Tạo chatbot thành công!");
+    if (isEditing) {
+      currentBot = res.data;
+      openBotDetail(currentBot);
+    } else {
+      loadBots();
+    }
+  } else {
+    showToast(res.data?.detail || "Có lỗi xảy ra", true);
+  }
+}
+
+async function confirmDelete() {
+  if (!currentBot) return;
+  if (!confirm(`Xóa chatbot "${currentBot.name}"? Tất cả tài liệu cũng sẽ bị xóa.`)) return;
+  const res = await api("DELETE", `/chatbots/${currentBot.id}`);
+  if (res.ok) { showToast("Đã xóa chatbot!"); showPanel("bots"); }
+  else showToast("Xóa thất bại", true);
+}
+
+async function regenKey() {
+  if (!currentBot) return;
+  if (!confirm("Tạo API key mới? Key cũ sẽ không còn hoạt động.")) return;
+  const res = await api("POST", `/chatbots/${currentBot.id}/regenerate-key`);
+  if (res.ok) { currentBot = res.data; openBotDetail(currentBot); showToast("Đã tạo API key mới!"); }
+}
+
+// ─── Bot Detail ────────────────────────────────────────────────────────────
+function openBotDetail(bot) {
+  currentBot = bot;
+  chatHistory     = [];
+  chatSummary     = "";
+  testSessionId   = generateId();
+  testAttachedImg = "";
+  clearTestAttach();
+  document.getElementById("detail-name").textContent = bot.name;
+  document.getElementById("detail-dot").style.background = bot.primary_color;
+
+  // Embed code
+  const widgetUrl = `${window.location.origin}/widget/chatbot-widget.js`.replace("dashboard/", "");
+  document.getElementById("embed-code").textContent =
+    `<!-- Chatbot Widget -->\n<script\n  src="${widgetUrl}"\n  data-api-key="${bot.api_key}"\n  data-api-url="${window.location.protocol}//${window.location.hostname}:8000">\n<\/script>`;
+
+  switchDetailTab("docs");
+  showPanel("detail");
+  loadDocs();
+}
+
+function switchDetailTab(tab) {
+  ["docs","chat","embed","history"].forEach(t => {
+    document.getElementById("dtab-" + t).style.display = t === tab ? "" : "none";
+  });
+  document.querySelectorAll(".tab").forEach((el, i) => {
+    el.classList.toggle("active", ["docs","chat","embed","history"][i] === tab);
+  });
+  if (tab === "chat")    initChatTest();
+  if (tab === "history") loadHistory();
+}
+
+// ─── Documents ─────────────────────────────────────────────────────────────
+async function loadDocs() {
+  if (!currentBot) return;
+  const res = await api("GET", `/chatbots/${currentBot.id}/documents`);
+  if (!res.ok) return;
+  renderDocs(res.data);
+
+  // Poll nếu có doc đang processing
+  const hasPending = res.data.some(d => d.status === "pending" || d.status === "processing");
+  clearInterval(pollTimer);
+  if (hasPending) pollTimer = setInterval(loadDocs, 2500);
+}
+
+function renderDocs(docs) {
+  const list = document.getElementById("doc-list");
+  if (!docs.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">📂</div>Chưa có tài liệu nào. Upload file để bắt đầu!</div>`;
+    return;
+  }
+  list.innerHTML = docs.map(doc => {
+    const icon = doc.mime_type?.includes("pdf") ? "📕" : doc.original_filename?.endsWith(".txt") ? "📝" : "📘";
+    const size = doc.file_size > 1048576 ? (doc.file_size/1048576).toFixed(1) + " MB" : Math.round(doc.file_size/1024) + " KB";
+    const badgeClass = { pending:"badge-pending", processing:"badge-processing", ready:"badge-ready", error:"badge-error" }[doc.status] || "";
+    const badgeLabel = { pending:"Chờ xử lý", processing:"Đang xử lý...", ready:`✅ ${doc.chunk_count} đoạn`, error:"Lỗi" }[doc.status] || doc.status;
+    return `
+      <div class="doc-item">
+        <div class="doc-icon">${icon}</div>
+        <div class="doc-info">
+          <div class="doc-name" title="${esc(doc.original_filename)}">${esc(doc.original_filename)}</div>
+          <div class="doc-meta">${size} · ${new Date(doc.created_at).toLocaleDateString("vi-VN")}</div>
+          ${doc.error_message ? `<div class="doc-meta" style="color:#dc2626">${esc(doc.error_message)}</div>` : ""}
+        </div>
+        <span class="badge ${badgeClass}">${badgeLabel}</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteDoc(${doc.id}, event)">🗑️</button>
+      </div>`;
+  }).join("");
+}
+
+async function uploadFiles(files) {
+  if (!files.length || !currentBot) return;
+  for (const file of files) {
+    showToast(`Đang upload: ${file.name}...`);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API}/chatbots/${currentBot.id}/documents`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "ngrok-skip-browser-warning": "true" },
+      body: formData,
+    });
+    if (res.ok) showToast(`✅ Upload xong: ${file.name}`);
+    else {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.detail || `Lỗi upload: ${file.name}`, true);
+    }
+  }
+  document.getElementById("file-input").value = "";
+  loadDocs();
+}
+
+async function deleteDoc(docId, e) {
+  e.stopPropagation();
+  if (!confirm("Xóa tài liệu này?")) return;
+  const res = await api("DELETE", `/chatbots/${currentBot.id}/documents/${docId}`);
+  if (res.ok) { showToast("Đã xóa tài liệu!"); loadDocs(); }
+  else showToast("Xóa thất bại", true);
+}
+
+// Drag & drop
+const zone = () => document.getElementById("upload-zone");
+document.addEventListener("dragover", e => { e.preventDefault(); zone()?.classList.add("drag"); });
+document.addEventListener("dragleave", () => zone()?.classList.remove("drag"));
+document.addEventListener("drop", e => {
+  e.preventDefault();
+  zone()?.classList.remove("drag");
+  if (currentBot) uploadFiles(e.dataTransfer.files);
+});
+
+// ─── Chat test ─────────────────────────────────────────────────────────────
+function initChatTest() {
+  const box = document.getElementById("chat-box");
+  if (!box.querySelector(".msg")) {
+    addChatMsg("bot", currentBot?.welcome_message || "Xin chào!");
+  }
+}
+
+function addChatMsg(role, text, imageUrl) {
+  const box = document.getElementById("chat-box");
+  const div = document.createElement("div");
+  div.className = `msg ${role}`;
+
+  // Thumbnail (user messages only)
+  if (imageUrl && role === "user") {
+    const img = document.createElement("img");
+    img.src   = imageUrl;
+    img.alt   = "Ảnh đính kèm";
+    img.title = "Click để xem ảnh";
+    img.onclick = () => window.open(imageUrl, "_blank");
+    div.appendChild(img);
+  }
+
+  // Text content
+  if (text) {
+    const span = document.createElement("span");
+    span.style.display = "block";
+    if (role === "bot" && window.marked) {
+      try { span.innerHTML = window.marked.parse(text); }
+      catch (_) { span.textContent = text; }
+    } else {
+      span.textContent = text;
+    }
+    div.appendChild(span);
+  }
+
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+async function sendTestChat() {
+  const input   = document.getElementById("chat-input");
+  const text    = input.value.trim();
+  const hasImg  = !!testAttachedImg;
+  if ((!text && !hasImg) || !currentBot) return;
+
+  input.value = "";
+  input.disabled = true;
+  document.getElementById("test-clip").disabled = true;
+
+  // Snapshot & clear attachment
+  const imgUrl = testAttachedImg;
+  testAttachedImg = "";
+  clearTestAttach();
+
+  // Show user bubble (with image if any)
+  addChatMsg("user", text, imgUrl);
+
+  // Build API message
+  let apiMsg = text;
+  if (imgUrl) {
+    apiMsg = text
+      ? `${text}\n\n[Đính kèm ảnh: ${imgUrl}]`
+      : `[Đính kèm ảnh: ${imgUrl}]`;
+  }
+  chatHistory.push({ role: "user", content: apiMsg });
+
+  const typingEl = addChatMsg("bot", "Đang soạn…");
+  typingEl.classList.add("typing");
+
+  const res = await api("POST", `/widget/${currentBot.api_key}/chat`, {
+    message:    apiMsg,
+    history:    chatHistory.slice(-10),
+    summary:    chatSummary,
+    session_id: testSessionId,
+    lang:       (navigator.language || "vi").split("-")[0],
+  });
+
+  typingEl.remove();
+
+  if (res.ok) {
+    addChatMsg("bot", res.data.answer);
+    chatHistory.push({ role: "assistant", content: res.data.answer });
+
+    if (res.data.summary) {
+      chatSummary = res.data.summary;
+      chatHistory = chatHistory.slice(-6);
+      addChatMsg("bot", "💡 _[Hội thoại đã được tóm tắt để tiết kiệm bộ nhớ]_");
+    }
+  } else {
+    addChatMsg("bot", "Lỗi kết nối, thử lại sau.");
+  }
+
+  input.disabled = false;
+  document.getElementById("test-clip").disabled = false;
+  input.focus();
+}
+
+// ─── Embed ─────────────────────────────────────────────────────────────────
+function copyEmbed() {
+  navigator.clipboard.writeText(document.getElementById("embed-code").textContent)
+    .then(() => showToast("Đã copy embed code!"))
+    .catch(() => showToast("Không copy được, hãy copy thủ công", true));
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  try {
+    const opts = {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+    };
+    if (token) opts.headers["Authorization"] = `Bearer ${token}`;
+    if (body) opts.body = JSON.stringify(body);
+
+    const res = await fetch(API + path, opts);
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    showToast("Không thể kết nối server", true);
+    return { ok: false, status: 0, data: null };
+  }
+}
+
+function openModal(id)  { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+// Close on backdrop click
+document.querySelectorAll(".modal-overlay").forEach(el => {
+  el.addEventListener("click", e => { if (e.target === el) el.classList.remove("open"); });
+});
+
+function setLoading(btnId, loading, text) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.innerHTML = loading ? `<span class="spinner"></span> ${text}` : text;
+}
+
+let toastTimer;
+function showToast(msg, isError) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "show" + (isError ? " error" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ""; }, 3000);
+}
+
+function esc(str) {
+  if (!str) return "";
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ─── Test Chat — File Upload ───────────────────────────────────────────────
+function clearTestAttach() {
+  testAttachedImg = "";
+  const bar = document.getElementById("test-attach-bar");
+  if (bar) bar.classList.remove("show");
+  const fi = document.getElementById("test-file-input");
+  if (fi) fi.value = "";
+}
+
+async function uploadTestImage(file) {
+  if (!currentBot) return;
+  if (file.size > 5 * 1024 * 1024) { showToast("Ảnh quá lớn (tối đa 5MB)", true); return; }
+
+  const thumb = document.getElementById("test-attach-thumb");
+  const info  = document.getElementById("test-attach-info");
+  const bar   = document.getElementById("test-attach-bar");
+  const clip  = document.getElementById("test-clip");
+
+  // Instant local preview
+  thumb.src  = URL.createObjectURL(file);
+  info.innerHTML = `<span style="opacity:.6">⏳ Đang tải...</span>`;
+  bar.classList.add("show");
+  clip.disabled = true;
+
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API}/widget/${currentBot.api_key}/upload`, {
+    method: "POST",
+    headers: { "ngrok-skip-browser-warning": "true" },
+    body: fd,
+  });
+
+  clip.disabled = false;
+
+  if (res.ok) {
+    const data   = await res.json();
+    // Construct full URL (same origin as API)
+    const origin = API.replace(/\/api$/, "");
+    testAttachedImg = `${origin}${data.url}`;
+    thumb.src = testAttachedImg;
+    info.textContent = file.name;
+  } else {
+    bar.classList.remove("show");
+    showToast("Không upload được ảnh. Thử lại.", true);
+  }
+}
+
+// Wire up file input after DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("change", e => {
+    if (e.target.id === "test-file-input") {
+      const file = e.target.files[0];
+      if (file) uploadTestImage(file);
+    }
+  });
+});
+
+function generateId() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function timeAgo(dateStr) {
+  const diff = (Date.now() - new Date(dateStr + "Z").getTime()) / 1000;
+  if (diff < 60)     return "vừa xong";
+  if (diff < 3600)   return Math.round(diff / 60) + " phút trước";
+  if (diff < 86400)  return Math.round(diff / 3600) + " giờ trước";
+  if (diff < 604800) return Math.round(diff / 86400) + " ngày trước";
+  return new Date(dateStr).toLocaleDateString("vi-VN");
+}
+
+// ─── Conversation History ──────────────────────────────────────────────────
+async function loadHistory() {
+  if (!currentBot) return;
+  const list = document.getElementById("history-list");
+  list.innerHTML = `<div class="conv-loading">⏳ Đang tải...</div>`;
+  const res = await api("GET", `/chatbots/${currentBot.id}/conversations`);
+  if (!res.ok) { list.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div>Không tải được lịch sử</div>`; return; }
+  renderHistory(res.data);
+}
+
+function renderHistory(convs) {
+  const list = document.getElementById("history-list");
+  if (!convs.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">💬</div>Chưa có cuộc hội thoại nào.<br><small>Khách chat với widget sẽ xuất hiện ở đây.</small></div>`;
+    return;
+  }
+
+  list.innerHTML = `<div class="conv-list" id="conv-list-inner"></div>`;
+  const inner = document.getElementById("conv-list-inner");
+
+  convs.forEach(conv => {
+    const date = new Date(conv.updated_at).toLocaleString("vi-VN");
+    const ago  = timeAgo(conv.updated_at);
+    const item = document.createElement("div");
+    item.className = "conv-item";
+    item.id = `conv-item-${conv.id}`;
+    item.innerHTML = `
+      <div class="conv-header" onclick="toggleConv(${conv.id})">
+        <span class="conv-icon">💬</span>
+        <span class="conv-date">${date}</span>
+        <span class="conv-ago">${ago}</span>
+        <span class="conv-count">${conv.message_count} tin</span>
+        <button class="conv-del" onclick="deleteConv(${conv.id}, event)" title="Xóa">🗑️</button>
+        <span class="conv-chevron" id="chev-${conv.id}">▼</span>
+      </div>
+      <div class="conv-body" id="conv-body-${conv.id}"></div>
+    `;
+    inner.appendChild(item);
+  });
+}
+
+async function toggleConv(convId) {
+  const body  = document.getElementById(`conv-body-${convId}`);
+  const chev  = document.getElementById(`chev-${convId}`);
+  const isOpen = body.classList.contains("open");
+
+  if (isOpen) {
+    body.classList.remove("open");
+    chev.classList.remove("open");
+    return;
+  }
+
+  body.classList.add("open");
+  chev.classList.add("open");
+
+  if (body.dataset.loaded) return;  // already loaded
+  body.innerHTML = `<div class="conv-loading">⏳ Đang tải tin nhắn...</div>`;
+
+  const res = await api("GET", `/chatbots/${currentBot.id}/conversations/${convId}/messages`);
+  if (!res.ok) { body.innerHTML = `<div class="conv-loading">⚠️ Không tải được</div>`; return; }
+
+  body.dataset.loaded = "1";
+  body.innerHTML = "";
+
+  if (!res.data.length) {
+    body.innerHTML = `<div class="conv-loading">Không có tin nhắn</div>`;
+    return;
+  }
+
+  res.data.forEach(msg => {
+    const div = document.createElement("div");
+    const role = msg.role === "user" ? "user" : "bot";
+    div.className = `hist-msg ${role}`;
+    if (role === "bot" && window.marked) {
+      try { div.innerHTML = window.marked.parse(msg.content); }
+      catch (_) { div.textContent = msg.content; }
+    } else {
+      div.textContent = msg.content;
+    }
+    body.appendChild(div);
+  });
+  body.scrollTop = body.scrollHeight;
+}
+
+async function deleteConv(convId, e) {
+  e.stopPropagation();
+  if (!confirm("Xóa cuộc hội thoại này?")) return;
+  const res = await api("DELETE", `/chatbots/${currentBot.id}/conversations/${convId}`);
+  if (res.ok) {
+    document.getElementById(`conv-item-${convId}`)?.remove();
+    showToast("Đã xóa cuộc hội thoại");
+    // Nếu list rỗng, reload để hiện empty state
+    const inner = document.getElementById("conv-list-inner");
+    if (inner && !inner.children.length) loadHistory();
+  } else {
+    showToast("Xóa thất bại", true);
+  }
+}
+</script>
+</body>
+</html>
