@@ -136,6 +136,8 @@
   .msg.user { align-self: flex-end; background: #4F46E5; color: #fff; border-bottom-right-radius: 3px; }
   .msg.bot  { align-self: flex-start; background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 3px; }
   .msg.typing { color: #94a3b8; font-style: italic; }
+  .msg-cursor::after { content: "▌"; animation: dash-blink 0.7s steps(1) infinite; }
+  @keyframes dash-blink { 50% { opacity: 0; } }
   .msg.user img { max-width: 200px; max-height: 180px; border-radius: 8px; display: block; margin-bottom: 4px; cursor: pointer; }
 
   /* ── Chat attach preview ── */
@@ -791,7 +793,6 @@ async function sendTestChat() {
   input.disabled = true;
   document.getElementById("test-clip").disabled = true;
 
-  // Snapshot & clear attachment
   const imgUrl = testAttachedImg;
   testAttachedImg = "";
   clearTestAttach();
@@ -811,32 +812,114 @@ async function sendTestChat() {
   const typingEl = addChatMsg("bot", "Đang soạn…");
   typingEl.classList.add("typing");
 
-  const res = await api("POST", `/widget/${currentBot.api_key}/chat`, {
-    message:    apiMsg,
-    history:    chatHistory.slice(-10),
-    summary:    chatSummary,
-    session_id: testSessionId,
-    lang:       (navigator.language || "vi").split("-")[0],
-  });
+  try {
+    const res = await fetch(`${API}/widget/${currentBot.api_key}/chat/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify({
+        message:    apiMsg,
+        history:    chatHistory.slice(-10),
+        summary:    chatSummary,
+        session_id: testSessionId,
+        lang:       (navigator.language || "vi").split("-")[0],
+      }),
+    });
 
-  typingEl.remove();
+    typingEl.remove();
 
-  if (res.ok) {
-    addChatMsg("bot", res.data.answer);
-    chatHistory.push({ role: "assistant", content: res.data.answer });
-
-    if (res.data.summary) {
-      chatSummary = res.data.summary;
-      chatHistory = chatHistory.slice(-6);
-      addChatMsg("bot", "💡 _[Hội thoại đã được tóm tắt để tiết kiệm bộ nhớ]_");
+    if (!res.ok || !res.body) {
+      addChatMsg("bot", "Lỗi kết nối, thử lại sau.");
+      return;
     }
-  } else {
-    addChatMsg("bot", "Lỗi kết nối, thử lại sau.");
-  }
 
-  input.disabled = false;
-  document.getElementById("test-clip").disabled = false;
-  input.focus();
+    // Create streaming bot bubble
+    const box    = document.getElementById("chat-box");
+    const bubble = document.createElement("div");
+    bubble.className = "msg bot";
+    const span = document.createElement("span");
+    span.style.display = "block";
+    span.className = "msg-cursor";
+    bubble.appendChild(span);
+    box.appendChild(bubble);
+    box.scrollTop = box.scrollHeight;
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf     = "";
+    let rawText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+
+      const parts = buf.split("\n\n");
+      buf = parts.pop();
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data: ")) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(6)); } catch (_) { continue; }
+
+        if (evt.token) {
+          rawText += evt.token;
+          span.textContent = rawText;
+          span.className = "msg-cursor";
+          box.scrollTop = box.scrollHeight;
+        }
+
+        if (evt.done) {
+          span.className = "";
+          const finalText = rawText || evt.answer || "";
+          if (window.marked) {
+            try { span.innerHTML = window.marked.parse(finalText); }
+            catch (_) { span.textContent = finalText; }
+          } else {
+            span.textContent = finalText;
+          }
+          box.scrollTop = box.scrollHeight;
+
+          chatHistory.push({ role: "assistant", content: evt.answer || finalText });
+
+          if (evt.summary) {
+            chatSummary = evt.summary;
+            chatHistory = chatHistory.slice(-6);
+            addChatMsg("bot", "💡 _[Hội thoại đã được tóm tắt để tiết kiệm bộ nhớ]_");
+          }
+        }
+
+        if (evt.error) {
+          span.className = "";
+          span.textContent = "Lỗi kết nối, thử lại sau.";
+        }
+      }
+    }
+
+    // Fallback: render if stream closed without done event
+    if (rawText && span.className === "msg-cursor") {
+      span.className = "";
+      if (window.marked) {
+        try { span.innerHTML = window.marked.parse(rawText); }
+        catch (_) { span.textContent = rawText; }
+      } else {
+        span.textContent = rawText;
+      }
+      chatHistory.push({ role: "assistant", content: rawText });
+    }
+
+  } catch (_) {
+    typingEl?.remove();
+    addChatMsg("bot", "Lỗi kết nối, thử lại sau.");
+  } finally {
+    input.disabled = false;
+    document.getElementById("test-clip").disabled = false;
+    input.focus();
+  }
 }
 
 // ─── Embed ─────────────────────────────────────────────────────────────────

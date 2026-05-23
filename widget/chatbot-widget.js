@@ -153,6 +153,9 @@
     }
     #cw-send:disabled { opacity: .4; cursor: not-allowed; }
 
+    .cw-cursor::after { content: "▌"; animation: cw-blink 0.7s steps(1) infinite; }
+    @keyframes cw-blink { 50% { opacity: 0; } }
+
     @media (max-width: 420px) {
       #cw-window { right: 8px; left: 8px; width: auto; bottom: 84px; }
       #cw-btn { bottom: 16px; right: 16px; }
@@ -268,16 +271,13 @@
     sendBtn.disabled = true;
     if (clipBtn) clipBtn.disabled = true;
 
-    // Snapshot & clear attachment before async work
     const imgUrl = attachedImgUrl;
     attachedImgUrl = "";
     const attachBar = document.getElementById("cw-attach-bar");
     if (attachBar) attachBar.classList.remove("show");
 
-    // Show user bubble (with image if any)
     appendMessage("user", text.trim(), imgUrl);
 
-    // Build message for API
     let apiMsg = text.trim();
     if (imgUrl) {
       apiMsg = apiMsg
@@ -289,7 +289,7 @@
     setTyping(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/widget/${API_KEY}/chat`, {
+      const res = await fetch(`${API_URL}/api/widget/${API_KEY}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -303,19 +303,88 @@
 
       setTyping(false);
 
-      if (!res.ok) {
+      if (!res.ok || !res.body) {
         appendMessage("bot", "Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.");
         return;
       }
 
-      const data = await res.json();
-      appendMessage("bot", data.answer);
-      history.push({ role: "assistant", content: data.answer });
+      // Create bot bubble immediately for streaming into
+      const msgs   = document.getElementById("cw-messages");
+      const bubble = document.createElement("div");
+      bubble.className = "cw-msg cw-bot";
+      const span = document.createElement("span");
+      span.style.display = "block";
+      span.className = "cw-cursor";
+      bubble.appendChild(span);
+      msgs.appendChild(bubble);
+      msgs.scrollTop = msgs.scrollHeight;
 
-      if (data.summary) {
-        summary = data.summary;
-        history = history.slice(-6);
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf     = "";
+      let rawText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by double-newline
+        const parts = buf.split("\n\n");
+        buf = parts.pop(); // keep incomplete last chunk
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith("data: ")) continue;
+          let evt;
+          try { evt = JSON.parse(line.slice(6)); } catch (_) { continue; }
+
+          if (evt.token) {
+            rawText += evt.token;
+            span.textContent = rawText;
+            span.className = "cw-cursor"; // keep blinking cursor
+            msgs.scrollTop = msgs.scrollHeight;
+          }
+
+          if (evt.done) {
+            span.className = ""; // remove cursor
+            span.innerHTML = renderMarkdown(rawText || evt.answer || "");
+            msgs.scrollTop = msgs.scrollHeight;
+
+            const finalAnswer = evt.answer || rawText;
+            history.push({ role: "assistant", content: finalAnswer });
+
+            if (evt.summary) {
+              summary = evt.summary;
+              history = history.slice(-6);
+            }
+          }
+
+          if (evt.error) {
+            span.className = "";
+            span.textContent = "Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.";
+          }
+        }
       }
+
+      // Handle any partial last buffer after stream closes
+      if (buf.trim().startsWith("data: ")) {
+        try {
+          const evt = JSON.parse(buf.trim().slice(6));
+          if (evt.done && rawText) {
+            span.className = "";
+            span.innerHTML = renderMarkdown(rawText);
+          }
+        } catch (_) {}
+      }
+
+      // Fallback: if no done event arrived but we have text, render it
+      if (rawText && span.className === "cw-cursor") {
+        span.className = "";
+        span.innerHTML = renderMarkdown(rawText);
+        history.push({ role: "assistant", content: rawText });
+      }
+
     } catch (_) {
       setTyping(false);
       appendMessage("bot", "Không thể kết nối đến server. Vui lòng thử lại.");

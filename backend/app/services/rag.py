@@ -9,8 +9,9 @@ Luồng:
 5. Answer: DeepSeek trả lời đúng ngôn ngữ dựa trên context + summary + recent history
 """
 from __future__ import annotations
+import json
 import re
-from typing import List, Optional, Set, Tuple
+from typing import AsyncGenerator, List, Optional, Set, Tuple
 import httpx
 from app.config import settings
 from app.services.embeddings import embed_texts
@@ -197,6 +198,99 @@ async def _summarize(
         pass
 
     return current_summary  # fallback: giữ summary cũ nếu lỗi
+
+
+# ── Streaming RAG function ────────────────────────────────────────────────
+async def get_rag_answer_stream(
+    chatbot_id: int,
+    user_message: str,
+    system_prompt: str = "",
+    history: Optional[List[dict]] = None,
+    summary: str = "",
+    lang: str = "",
+) -> AsyncGenerator[str, None]:
+    """
+    Async generator yielding SSE strings.
+    Events: {"token": "..."} per LLM token, then {"done": true, "answer": "...", "summary": "..."}
+    """
+    if not settings.DEEPSEEK_API_KEY:
+        yield 'data: {"error": "Chưa cấu hình DEEPSEEK_API_KEY."}\n\n'
+        yield 'data: {"done": true, "answer": "", "summary": null}\n\n'
+        return
+
+    history = history or []
+    new_summary: Optional[str] = None
+    full_answer = ""
+
+    detected = _detect_lang(user_message, lang)
+    lang_name = _LANG_NAMES.get(detected, detected)
+    lang_rule = (
+        f"🌐 LANGUAGE RULE (HIGHEST PRIORITY): "
+        f"The customer is communicating in {lang_name}. "
+        f"You MUST reply ENTIRELY in {lang_name}. "
+        f"Do NOT use any other language in your response, even for technical terms."
+    )
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        if len(history) >= SUMMARIZE_AT:
+            old_msgs = history[:-RECENT_LIMIT]
+            history  = history[-RECENT_LIMIT:]
+            new_summary = await _summarize(old_msgs, summary, client)
+            summary = new_summary
+
+        chunks = await _retrieve(chatbot_id, user_message, client)
+        context = "\n\n---\n\n".join(chunks) if chunks else "Không có tài liệu liên quan."
+
+        summary_block = (
+            f"\n== TÓM TẮT HỘI THOẠI TRƯỚC ==\n{summary}\n== HẾT TÓM TẮT ==\n\n"
+            if summary else ""
+        )
+        final_system = _SYSTEM_TEMPLATE.format(
+            custom_prompt=system_prompt.strip() + "\n" if system_prompt else "",
+            summary_block=summary_block,
+            context=context,
+            lang_rule=lang_rule,
+        )
+
+        messages = [{"role": "system", "content": final_system}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": user_message})
+
+        try:
+            async with client.stream(
+                "POST",
+                f"{settings.DEEPSEEK_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": settings.DEEPSEEK_MODEL,
+                    "messages": messages,
+                    "max_tokens": 1024,
+                    "temperature": 0.3,
+                    "stream": True,
+                },
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        token = chunk["choices"][0]["delta"].get("content", "")
+                        if token:
+                            full_answer += token
+                            yield f"data: {json.dumps({'token': token})}\n\n"
+                    except Exception:
+                        continue
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    yield f"data: {json.dumps({'done': True, 'answer': full_answer, 'summary': new_summary})}\n\n"
 
 
 # ── Main RAG function ─────────────────────────────────────────────────────
