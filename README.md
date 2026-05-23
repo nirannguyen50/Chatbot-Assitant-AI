@@ -1,5 +1,7 @@
 # Chatbot Platform — Tài liệu đầy đủ
 
+> **GitHub Repository:** https://github.com/nirannguyen50/Chatbot-Assitant-AI
+
 Nền tảng SaaS tạo chatbot AI cho doanh nghiệp, hoạt động như Chatbase:
 - Business owner upload tài liệu → chatbot học từ tài liệu đó
 - Nhúng widget vào website → khách hàng chat, AI trả lời dựa trên tài liệu
@@ -155,12 +157,19 @@ D:\Chatbot AI\
 
 ### Yêu cầu
 - Python 3.10+
+- Git
 - DeepSeek API key — đăng ký tại: https://platform.deepseek.com
 - RAM tối thiểu 4GB (model BAAI/bge-m3 ~1.1GB)
 
+### Bước 0 — Clone từ GitHub
+```powershell
+git clone https://github.com/nirannguyen50/Chatbot-Assitant-AI.git "Chatbot AI"
+cd "Chatbot AI"
+```
+
 ### Bước 1 — Tạo virtual environment
 ```powershell
-cd "D:\Chatbot AI\backend"
+cd backend
 python -m venv venv
 venv\Scripts\activate
 ```
@@ -657,7 +666,7 @@ EMBEDDING_MODEL=BAAI/bge-m3
 ### Option C — VPS (DigitalOcean $6/tháng)
 ```bash
 # Trên VPS Ubuntu
-git clone your-repo
+git clone https://github.com/nirannguyen50/Chatbot-Assitant-AI.git "Chatbot AI"
 cd "Chatbot AI/backend"
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
@@ -776,38 +785,6 @@ Kiểm tra widget có gửi session_id không:
 • Nếu thiếu → kiểm tra chatbot-widget.js có hàm genId() không
 ```
 
----
-
-## 14. Changelog
-
-### v1.3 — File Upload + Multi-language
-- **[Widget] File Upload**: Nút 📎 đính kèm ảnh (JPG/PNG/WEBP/GIF, 5MB), thumbnail preview, upload lên server
-- **[Widget] Multi-language Auto-detect**: Nhận diện 15+ ngôn ngữ từ nội dung tin nhắn (regex, không cần thư viện), kết hợp browser language hint
-- **[Backend] `/api/widget/{key}/upload`**: Endpoint upload ảnh mới, lưu vào `uploads/widget/{chatbot_id}/`
-- **[Backend] `/uploads`**: Static file serving cho ảnh chat
-- **[Backend] Language detection**: `_detect_lang()` trong `rag.py`, inject explicit language rule vào system prompt
-- **[Schema] `lang`**: Thêm field `lang` vào `ChatRequest`
-
-### v1.2 — Markdown + Conversation History
-- **[Widget/Dashboard] Markdown Rendering**: `marked.js` render bold, italic, bảng, code block cho bot messages
-- **[Backend] Conversation History**: Bảng `conversations` + `conv_messages`, lưu mọi phiên chat
-- **[Dashboard] Tab "📋 Lịch sử"**: Xem/xóa hội thoại, tin nhắn render Markdown
-- **[API]** 3 endpoints mới: GET conversations, GET messages, DELETE conversation
-- **[Widget]** Session ID tự sinh (UUID), gửi kèm mọi request để lưu history
-
-### v1.1 — Running Summary + Query Expansion
-- **[Backend] Running Summary**: Tóm tắt hội thoại dài (>8 tin) thành ≤120 từ bằng DeepSeek
-- **[Backend] Query Expansion**: Sinh 3 biến thể đồng nghĩa của câu hỏi → search rộng hơn
-- **[Backend] BAAI/bge-m3**: Nâng cấp embedding model (1024-dim, tốt nhất cho tiếng Việt)
-- **[Backend] Excel/CSV support**: Parser cho `.xlsx`, `.xls`, `.csv`
-
-### v1.0 — MVP
-- RAG pipeline: upload → chunk → embed → ChromaDB → DeepSeek
-- Multi-tenant: mỗi chatbot có collection riêng trong ChromaDB
-- JWT auth, dashboard HTML, embeddable widget JS
-
----
-
 ### ngrok "tunnel not found"
 ```
 • Authtoken chưa cấu hình → chạy lại: .\ngrok.exe config add-authtoken TOKEN
@@ -846,3 +823,39 @@ Giải pháp:
 • Với tiếng Anh: dùng browser ngôn ngữ Anh hoặc gõ câu đủ dài
 • Model DeepSeek có thể không tuân thủ tuyệt đối với ngôn ngữ ít phổ biến
 ```
+
+---
+
+## 14. Changelog
+
+### v1.4 — GitHub & Git Setup
+- **[Repo]** Publish lên GitHub: https://github.com/nirannguyen50/Chatbot-Assitant-AI
+- **[Git]** `.gitignore` loại trừ: `.env`, `venv/`, `chatbot.db`, `chroma_db/`, `uploads/`, `.claude/`
+- **[Docs]** Thêm hướng dẫn clone từ GitHub vào mục Cài đặt
+- **[Docs]** Sửa cấu trúc README (các mục troubleshooting bị lạc ra ngoài section)
+
+### v1.3 — File Upload + Multi-language
+- **[Widget] File Upload**: Nút 📎 đính kèm ảnh (JPG/PNG/WEBP/GIF, 5MB), thumbnail preview, upload lên server
+- **[Widget] Multi-language Auto-detect**: Nhận diện 15+ ngôn ngữ từ nội dung tin nhắn (regex, không cần thư viện), kết hợp browser language hint
+- **[Backend] `/api/widget/{key}/upload`**: Endpoint upload ảnh mới, lưu vào `uploads/widget/{chatbot_id}/`
+- **[Backend] `/uploads`**: Static file serving cho ảnh chat
+- **[Backend] Language detection**: `_detect_lang()` trong `rag.py`, inject explicit language rule vào system prompt
+- **[Schema] `lang`**: Thêm field `lang` vào `ChatRequest`
+
+### v1.2 — Markdown + Conversation History
+- **[Widget/Dashboard] Markdown Rendering**: `marked.js` render bold, italic, bảng, code block cho bot messages
+- **[Backend] Conversation History**: Bảng `conversations` + `conv_messages`, lưu mọi phiên chat
+- **[Dashboard] Tab "📋 Lịch sử"**: Xem/xóa hội thoại, tin nhắn render Markdown
+- **[API]** 3 endpoints mới: GET conversations, GET messages, DELETE conversation
+- **[Widget]** Session ID tự sinh (UUID), gửi kèm mọi request để lưu history
+
+### v1.1 — Running Summary + Query Expansion
+- **[Backend] Running Summary**: Tóm tắt hội thoại dài (>8 tin) thành ≤120 từ bằng DeepSeek
+- **[Backend] Query Expansion**: Sinh 3 biến thể đồng nghĩa của câu hỏi → search rộng hơn
+- **[Backend] BAAI/bge-m3**: Nâng cấp embedding model (1024-dim, tốt nhất cho tiếng Việt)
+- **[Backend] Excel/CSV support**: Parser cho `.xlsx`, `.xls`, `.csv`
+
+### v1.0 — MVP
+- RAG pipeline: upload → chunk → embed → ChromaDB → DeepSeek
+- Multi-tenant: mỗi chatbot có collection riêng trong ChromaDB
+- JWT auth, dashboard HTML, embeddable widget JS
