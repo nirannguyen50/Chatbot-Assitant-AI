@@ -34,7 +34,7 @@ Nền tảng SaaS tạo chatbot AI cho doanh nghiệp, hoạt động như Chatb
 ┌──────────────────────────────────────────────────────────────────┐
 │  DASHBOARD  localhost:8000/dashboard                             │
 │  HTML + CSS + Vanilla JS + marked.js                            │
-│  - Đăng ký / Đăng nhập (JWT)                                    │
+│  - Đăng ký / Đăng nhập / Đặt lại mật khẩu qua email (JWT)     │
 │  - Tạo & quản lý chatbot                                        │
 │  - Upload tài liệu PDF/DOCX/XLSX/CSV/TXT                        │
 │  - Test chat trực tiếp (render Markdown)                         │
@@ -564,6 +564,22 @@ Khách gõ: "こんにちは、営業時間を教えてください。"
 | `.csv` | built-in csv | Auto-detect encoding (utf-8/latin-1/cp1252) |
 | `.txt` | built-in | Plain text |
 
+### 🔐 Đặt lại mật khẩu qua Email
+
+Khi người dùng quên mật khẩu:
+
+1. Click **"Quên mật khẩu?"** ở màn hình đăng nhập
+2. Nhập email → nhận link trong hộp thư (hợp lệ **1 giờ**)
+3. Click link → nhập mật khẩu mới → đăng nhập lại
+
+**Cơ chế bảo mật:**
+- Token được lưu dạng SHA-256 hash — không bao giờ lưu token gốc vào DB
+- Mỗi token chỉ dùng được **1 lần**, tự hết hạn sau 1 giờ
+- Gửi email trong **background** — response API không bị delay
+- Luôn trả `200` dù email có tồn tại hay không — tránh lộ danh sách tài khoản
+
+**Cấu hình:** Xem mục [SMTP trong `.env`](#4-cấu-hình-env)
+
 ---
 
 ## 9. Nhúng Widget vào Website
@@ -845,6 +861,31 @@ Giải pháp:
 • Widget luôn gửi navigator.language — kiểm tra DevTools → Network → request body
 • Với tiếng Anh: dùng browser ngôn ngữ Anh hoặc gõ câu đủ dài
 • Model DeepSeek có thể không tuân thủ tuyệt đối với ngôn ngữ ít phổ biến
+```
+
+### Email đặt lại mật khẩu không gửi được
+```
+Kiểm tra theo thứ tự:
+
+1. SMTP_USER và SMTP_PASSWORD có trong .env chưa?
+   → type .env | findstr SMTP
+
+2. Dùng Gmail → phải là App Password (16 ký tự), KHÔNG phải mật khẩu Gmail thường
+   → Bật 2FA: myaccount.google.com/security
+   → Tạo App Password: myaccount.google.com/apppasswords
+
+3. Lỗi "Username and Password not accepted"
+   → App Password sai hoặc 2FA chưa bật
+
+4. Lỗi "Connection refused" hoặc timeout
+   → Kiểm tra SMTP_HOST=smtp.gmail.com, SMTP_PORT=587
+
+5. Email gửi OK nhưng không nhận được
+   → Kiểm tra thư mục Spam
+   → BASE_URL trong .env phải đúng để link trong email hoạt động
+
+6. Xem log server để debug:
+   → Tìm dòng "Reset email sent to" hoặc "Failed to send reset email"
 ```
 
 ---
