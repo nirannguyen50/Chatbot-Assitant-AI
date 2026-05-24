@@ -2,15 +2,15 @@
 Public chat endpoint — xác thực bằng API key.
 Hỗ trợ Running Summary + lưu Conversation History vào DB.
 """
-from __future__ import annotations
 import json
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Body, Depends, HTTPException, Header, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.core.limiter import limiter
 from app.database import get_db
 from app.models.chatbot import Chatbot
 from app.models.conversation import Conversation, ConvMessage
@@ -84,26 +84,28 @@ async def chat(
 
 
 @router.post("/widget/{api_key}/chat", response_model=ChatResponse)
+@limiter.limit("30/minute")
 async def widget_chat(
     api_key: str,
-    request: ChatRequest,
+    request: Request,
+    payload: ChatRequest = Body(...),
     db: Session = Depends(get_db),
 ):
     """Widget nhúng vào website dùng api_key trong URL."""
     bot = _get_chatbot_by_key(api_key, db)
-    history = [{"role": m.role, "content": m.content} for m in (request.history or [])]
+    history = [{"role": m.role, "content": m.content} for m in (payload.history or [])]
 
     answer, new_summary = await get_rag_answer(
         chatbot_id=bot.id,
-        user_message=request.message,
+        user_message=payload.message,
         system_prompt=bot.system_prompt or "",
         history=history,
-        summary=request.summary or "",
-        lang=request.lang or "",
+        summary=payload.summary or "",
+        lang=payload.lang or "",
     )
 
-    if request.session_id:
-        _save_messages(db, bot.id, request.session_id, request.message, answer)
+    if payload.session_id:
+        _save_messages(db, bot.id, payload.session_id, payload.message, answer)
 
     return ChatResponse(answer=answer, summary=new_summary)
 
@@ -118,24 +120,26 @@ _STREAM_HEADERS = {
 
 
 @router.post("/widget/{api_key}/chat/stream")
+@limiter.limit("30/minute")
 async def widget_chat_stream(
     api_key: str,
-    request: ChatRequest,
+    request: Request,
+    payload: ChatRequest = Body(...),
     db: Session = Depends(get_db),
 ):
     """Streaming variant of widget_chat — returns SSE token events."""
     bot = _get_chatbot_by_key(api_key, db)
-    history = [{"role": m.role, "content": m.content} for m in (request.history or [])]
+    history = [{"role": m.role, "content": m.content} for m in (payload.history or [])]
 
     async def generate():
         full_answer = ""
         async for event in get_rag_answer_stream(
             chatbot_id=bot.id,
-            user_message=request.message,
+            user_message=payload.message,
             system_prompt=bot.system_prompt or "",
             history=history,
-            summary=request.summary or "",
-            lang=request.lang or "",
+            summary=payload.summary or "",
+            lang=payload.lang or "",
         ):
             yield event
             if '"done"' in event:
@@ -145,8 +149,8 @@ async def widget_chat_stream(
                 except Exception:
                     pass
 
-        if request.session_id and full_answer:
-            _save_messages(db, bot.id, request.session_id, request.message, full_answer)
+        if payload.session_id and full_answer:
+            _save_messages(db, bot.id, payload.session_id, payload.message, full_answer)
 
     return StreamingResponse(generate(), headers=_STREAM_HEADERS)
 

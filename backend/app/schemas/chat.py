@@ -1,18 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
 class ChatMessage(BaseModel):
     role: str  # "user" | "assistant"
-    content: str
+    content: str = Field(max_length=8000)
 
 
 class ChatRequest(BaseModel):
-    message: str
-    history: Optional[List[ChatMessage]] = []
-    summary: Optional[str] = ""       # Tóm tắt hội thoại cũ (widget tự quản lý)
-    session_id: Optional[str] = None  # UUID phiên trò chuyện để lưu history
-    lang: Optional[str] = None        # Ngôn ngữ từ browser (VD: "vi", "en", "ja")
+    message: str = Field(min_length=1, max_length=4000)
+    history: Optional[List[ChatMessage]] = Field(default=[], max_length=50)
+    summary: Optional[str] = Field(default="", max_length=2000)
+    session_id: Optional[str] = Field(default=None, max_length=128)
+    lang: Optional[str] = Field(default=None, max_length=10)
 
 
 class ChatResponse(BaseModel):

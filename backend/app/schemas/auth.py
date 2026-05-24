@@ -6,7 +6,7 @@ from typing import Optional
 class RegisterRequest(BaseModel):
     email: EmailStr
     full_name: str
-    password: str
+    password: str = Field(min_length=8, description="Mật khẩu tối thiểu 8 ký tự")
 
 
 class LoginRequest(BaseModel):

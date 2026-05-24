@@ -117,7 +117,7 @@ async def upload_document(
     mime = file.content_type or ""
     suffix = Path(file.filename or "").suffix.lower()
 
-    if mime not in ALLOWED_TYPES and suffix not in ALLOWED_EXTENSIONS:
+    if mime not in ALLOWED_TYPES or suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail="Chỉ hỗ trợ PDF, DOCX, XLSX, XLS, CSV, TXT",

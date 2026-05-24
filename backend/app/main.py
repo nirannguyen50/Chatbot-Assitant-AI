@@ -17,7 +17,15 @@ from app.api import auth, chatbots, documents, chat, conversations, uploads
 logger = logging.getLogger(__name__)
 
 
+_DEFAULT_SECRET = "change-this-in-production-must-be-at-least-32-chars"
+
+
 def _startup_checks():
+    if settings.SECRET_KEY == _DEFAULT_SECRET:
+        logger.warning(
+            "SECRET_KEY vẫn là giá trị mặc định — TẤT CẢ JWT đều có thể bị giả mạo. "
+            "Thay bằng giá trị ngẫu nhiên dài >=32 ký tự trong file .env."
+        )
     if not settings.SMTP_USER:
         logger.warning(
             "SMTP chưa cấu hình (SMTP_USER trống) — "
@@ -69,10 +77,15 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+_origins = (
+    [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
+    if settings.ALLOWED_ORIGINS != "*"
+    else ["*"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Thay bằng domain cụ thể khi production
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=settings.ALLOWED_ORIGINS != "*",
     allow_methods=["*"],
     allow_headers=["*"],
 )

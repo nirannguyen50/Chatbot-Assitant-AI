@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
 
+    # Comma-separated list of allowed CORS origins; "*" allows all (dev only)
+    ALLOWED_ORIGINS: str = "*"
+
     # ── Email (SMTP) ─────────────────────────────────
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587

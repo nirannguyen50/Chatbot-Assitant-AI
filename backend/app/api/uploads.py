@@ -34,7 +34,7 @@ async def widget_upload(
     mime   = (file.content_type or "").lower()
     suffix = Path(file.filename or "image.jpg").suffix.lower()
 
-    if mime not in ALLOWED_MIME and suffix not in ALLOWED_EXT:
+    if mime not in ALLOWED_MIME or suffix not in ALLOWED_EXT:
         raise HTTPException(status_code=400, detail="Chỉ hỗ trợ ảnh: JPG, PNG, WEBP, GIF")
 
     content = await file.read()
