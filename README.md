@@ -892,6 +892,12 @@ Kiểm tra theo thứ tự:
 
 ## 14. Changelog
 
+### v1.7 — Conversation Analytics Dashboard
+- **[Dashboard] Tab Analytics**: Tab mới trong chatbot detail hiển thị 4 stat cards + bar chart theo ngày
+- **[Backend] `GET /api/chatbots/{id}/analytics?days=7`**: Trả về tổng conversations, messages, leads, avg msgs/conv và daily breakdown
+- **[Frontend] Chart.js v4**: Bar chart số conversations mỗi ngày, toggle 7/30 ngày
+- **[Security]** Endpoint chỉ dành cho owner (JWT), `days` param clamp về [7, 90]
+
 ### v1.6 — Lead Capture Form trong Widget
 - **[Widget] Lead Form**: Trước tin nhắn đầu tiên, widget hiện form thu thập Tên + Email (bắt buộc) + Số điện thoại (tùy chọn)
 - **[Backend] Model `Lead`**: Bảng mới lưu lead, gắn với `session_id` (UNIQUE), cascade xóa theo chatbot

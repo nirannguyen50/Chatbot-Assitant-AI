@@ -231,8 +231,21 @@
   .hist-msg.bot  { align-self: flex-start; background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 3px; }
   .conv-loading  { color: #94a3b8; font-size: 13px; font-style: italic; padding: 4px 0; }
   .conv-lead { font-size: 12px; color: #6366f1; background: #eef2ff; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Analytics ── */
+  .analytics-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 700px) { .analytics-cards { grid-template-columns: repeat(2, 1fr); } }
+  .stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 16px; text-align: center; }
+  .stat-card .stat-val { font-size: 32px; font-weight: 700; color: #1e293b; line-height: 1; }
+  .stat-card .stat-label { font-size: 12px; color: #64748b; margin-top: 6px; }
+  .analytics-range { display: flex; gap: 8px; margin-bottom: 16px; }
+  .range-btn { padding: 6px 16px; border-radius: 20px; border: 1.5px solid #e2e8f0; background: #fff; font-size: 13px; cursor: pointer; transition: all .15s; }
+  .range-btn.active { background: var(--primary, #4F46E5); color: #fff; border-color: var(--primary, #4F46E5); }
+  .analytics-chart-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+  .analytics-chart-wrap h4 { font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 16px; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js" onload="marked.setOptions({breaks:true,gfm:true})"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -350,6 +363,7 @@
         <button class="tab" onclick="switchDetailTab('chat')">💬 Test Chat</button>
         <button class="tab" onclick="switchDetailTab('embed')">🔗 Nhúng Widget</button>
         <button class="tab" onclick="switchDetailTab('history')">📋 Lịch sử</button>
+        <button class="tab" onclick="switchDetailTab('analytics')">📊 Analytics</button>
       </div>
 
       <!-- Tab: Documents -->
@@ -394,6 +408,24 @@
           <button class="btn btn-ghost btn-sm" onclick="loadHistory()">🔄 Làm mới</button>
         </div>
         <div id="history-list"></div>
+      </div>
+
+      <!-- Tab: Analytics -->
+      <div id="dtab-analytics" style="display:none">
+        <div class="analytics-range">
+          <button class="range-btn active" id="range-7" onclick="loadAnalytics(7)">7 ngày</button>
+          <button class="range-btn" id="range-30" onclick="loadAnalytics(30)">30 ngày</button>
+        </div>
+        <div class="analytics-cards" id="analytics-cards">
+          <div class="stat-card"><div class="stat-val" id="stat-convs">—</div><div class="stat-label">Conversations</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-msgs">—</div><div class="stat-label">Tin nhắn</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-leads">—</div><div class="stat-label">Leads</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-avg">—</div><div class="stat-label">Avg msgs/conv</div></div>
+        </div>
+        <div class="analytics-chart-wrap">
+          <h4 id="analytics-chart-title">Conversations theo ngày</h4>
+          <canvas id="analytics-chart" height="100"></canvas>
+        </div>
       </div>
 
       <!-- Tab: Embed -->
@@ -716,14 +748,15 @@ function openBotDetail(bot) {
 }
 
 function switchDetailTab(tab) {
-  ["docs","chat","embed","history"].forEach(t => {
+  ["docs","chat","embed","history","analytics"].forEach(t => {
     document.getElementById("dtab-" + t).style.display = t === tab ? "" : "none";
   });
   document.querySelectorAll(".tab").forEach((el, i) => {
-    el.classList.toggle("active", ["docs","chat","embed","history"][i] === tab);
+    el.classList.toggle("active", ["docs","chat","embed","history","analytics"][i] === tab);
   });
-  if (tab === "chat")    initChatTest();
-  if (tab === "history") loadHistory();
+  if (tab === "chat")      initChatTest();
+  if (tab === "history")   loadHistory();
+  if (tab === "analytics") loadAnalytics(7);
 }
 
 // ─── Documents ─────────────────────────────────────────────────────────────
@@ -1215,6 +1248,68 @@ async function deleteConv(convId, e) {
   } else {
     showToast("Xóa thất bại", true);
   }
+}
+
+// ─── Analytics ─────────────────────────────────────────────────────────────
+let _analyticsChart = null;
+
+async function loadAnalytics(days) {
+  if (!currentBot) return;
+
+  // Update active range button
+  document.querySelectorAll(".range-btn").forEach(btn => btn.classList.remove("active"));
+  const activeBtn = document.getElementById(`range-${days}`);
+  if (activeBtn) activeBtn.classList.add("active");
+
+  const res = await api("GET", `/chatbots/${currentBot.id}/analytics?days=${days}`);
+  if (!res.ok) {
+    showToast("Không tải được analytics", true);
+    return;
+  }
+  const d = res.data;
+
+  // Stat cards
+  document.getElementById("stat-convs").textContent  = d.total_conversations;
+  document.getElementById("stat-msgs").textContent   = d.total_messages;
+  document.getElementById("stat-leads").textContent  = d.total_leads;
+  document.getElementById("stat-avg").textContent    = d.avg_messages_per_conv;
+
+  document.getElementById("analytics-chart-title").textContent =
+    `Conversations theo ngày (${days} ngày gần nhất)`;
+
+  // Destroy old chart if exists
+  if (_analyticsChart) { _analyticsChart.destroy(); _analyticsChart = null; }
+
+  const labels = d.daily_conversations.map(x => {
+    const [, m, dd] = x.date.split("-");
+    return `${dd}/${m}`;
+  });
+  const counts = d.daily_conversations.map(x => x.count);
+  const color  = currentBot.primary_color || "#4F46E5";
+
+  const ctx = document.getElementById("analytics-chart").getContext("2d");
+  _analyticsChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Conversations",
+        data: counts,
+        backgroundColor: color + "99",
+        borderColor: color,
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
 }
 </script>
 </body>

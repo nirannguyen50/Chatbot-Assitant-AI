@@ -2,11 +2,12 @@
 Conversation history API — chỉ dành cho chủ chatbot xem lại.
 """
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -38,6 +39,19 @@ class ConversationOut(BaseModel):
     lead_name: Optional[str] = None
     lead_email: Optional[str] = None
     lead_phone: Optional[str] = None
+
+
+class DailyCount(BaseModel):
+    date: str
+    count: int
+
+
+class AnalyticsOut(BaseModel):
+    total_conversations: int
+    total_messages: int
+    total_leads: int
+    avg_messages_per_conv: float
+    daily_conversations: List[DailyCount]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -127,3 +141,60 @@ def delete_conversation(
 
     db.delete(conv)
     db.commit()
+
+
+@router.get("/{chatbot_id}/analytics", response_model=AnalyticsOut)
+def get_analytics(
+    chatbot_id: int,
+    days: int = Query(default=7, ge=7, le=90),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Thống kê conversations, messages, leads và daily chart."""
+    _check_owner(chatbot_id, current_user, db)
+
+    total_conversations = db.query(func.count(Conversation.id)).filter(
+        Conversation.chatbot_id == chatbot_id
+    ).scalar() or 0
+
+    total_messages = (
+        db.query(func.count(ConvMessage.id))
+        .join(Conversation, ConvMessage.conversation_id == Conversation.id)
+        .filter(Conversation.chatbot_id == chatbot_id)
+        .scalar() or 0
+    )
+
+    total_leads = db.query(func.count(Lead.id)).filter(
+        Lead.chatbot_id == chatbot_id
+    ).scalar() or 0
+
+    avg_msgs = round(total_messages / total_conversations, 1) if total_conversations else 0.0
+
+    since = (datetime.utcnow().date() - timedelta(days=days - 1))
+
+    rows = (
+        db.query(
+            func.date(Conversation.created_at).label("day"),
+            func.count(Conversation.id).label("cnt"),
+        )
+        .filter(
+            Conversation.chatbot_id == chatbot_id,
+            Conversation.created_at >= since,
+        )
+        .group_by(func.date(Conversation.created_at))
+        .all()
+    )
+
+    counts = {str(row.day): row.cnt for row in rows}
+    daily = [
+        DailyCount(date=str(since + timedelta(days=i)), count=counts.get(str(since + timedelta(days=i)), 0))
+        for i in range(days)
+    ]
+
+    return AnalyticsOut(
+        total_conversations=total_conversations,
+        total_messages=total_messages,
+        total_leads=total_leads,
+        avg_messages_per_conv=avg_msgs,
+        daily_conversations=daily,
+    )
