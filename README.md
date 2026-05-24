@@ -74,16 +74,17 @@ Nền tảng SaaS tạo chatbot AI cho doanh nghiệp, hoạt động như Chatb
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Luồng dữ liệu khi chat:**
+**Luồng dữ liệu khi chat (Streaming):**
 ```
 Khách hỏi → Widget (kèm session_id + summary)
-    → API → Query Expansion (DeepSeek sinh 3 biến thể câu hỏi)
+    → API /chat/stream
+    → Query Expansion (DeepSeek sinh 3 biến thể câu hỏi)
     → Embed tất cả variants → ChromaDB tìm top-5 chunk / variant
     → Merge + dedup context
     → Running Summary (nếu history ≥ 8 tin)
-    → DeepSeek API tổng hợp câu trả lời
-    → Lưu vào DB (conversations + conv_messages)
-    → Widget render Markdown
+    → DeepSeek API stream từng token (SSE)
+    → Widget nhận token → hiển thị typewriter effect
+    → Khi xong: render Markdown + lưu vào DB
 ```
 
 ---
@@ -103,7 +104,8 @@ D:\Chatbot AI\
 │   │   │   ├── user.py           ← Bảng users
 │   │   │   ├── chatbot.py        ← Bảng chatbots (api_key, primary_color, ...)
 │   │   │   ├── document.py       ← Bảng documents (status, chunk_count, ...)
-│   │   │   └── conversation.py   ← Bảng conversations + conv_messages
+│   │   │   ├── conversation.py   ← Bảng conversations + conv_messages
+│   │   │   └── password_reset.py ← Bảng password_reset_tokens (1h TTL, single-use)
 │   │   │
 │   │   ├── schemas/              ← Pydantic request/response schemas
 │   │   │   ├── auth.py
@@ -119,7 +121,8 @@ D:\Chatbot AI\
 │   │   │   ├── processor.py      ← Parse PDF/DOCX/XLSX/CSV/TXT → text → chunks
 │   │   │   ├── embeddings.py     ← BAAI/bge-m3 embed text (local, free)
 │   │   │   ├── vector.py         ← ChromaDB CRUD (add/search/delete)
-│   │   │   └── rag.py            ← RAG pipeline: Query Expansion + Running Summary
+│   │   │   ├── rag.py            ← RAG pipeline: Query Expansion + Running Summary
+│   │   │   └── email.py          ← Gửi email SMTP (reset password link)
 │   │   │
 │   │   └── api/                  ← Route handlers
 │   │       ├── auth.py           ← POST /api/auth/register|login|me
@@ -141,7 +144,8 @@ D:\Chatbot AI\
 │   └── .env.example              ← Template config
 │
 ├── dashboard/
-│   └── index.html                ← UI quản lý (HTML + CSS + Vanilla JS)
+│   ├── index.html                ← UI quản lý (HTML + CSS + Vanilla JS)
+│   └── reset-password.html       ← Trang đặt lại mật khẩu (từ email link)
 │
 ├── widget/
 │   ├── chatbot-widget.js         ← Embeddable chat widget
@@ -236,6 +240,22 @@ EMBEDDING_MODEL=BAAI/bge-m3
 CHROMA_PERSIST_DIR=./chroma_db      # Lưu vector embeddings
 UPLOAD_DIR=./uploads                 # Lưu file upload
 MAX_FILE_SIZE=52428800               # 50MB tối đa mỗi file
+
+# ── Email (SMTP) — Dùng để gửi link đặt lại mật khẩu ──
+# Hướng dẫn Gmail App Password:
+#   1. Bật 2FA tại myaccount.google.com/security
+#   2. Tạo App Password tại myaccount.google.com/apppasswords
+#   3. Dùng 16 ký tự đó làm SMTP_PASSWORD (không phải mật khẩu Gmail thường)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your@gmail.com
+SMTP_PASSWORD=your-16-char-app-password
+SMTP_FROM=your@gmail.com
+
+# URL gốc của server (dùng để tạo reset link trong email)
+# Local:      http://localhost:8000
+# Production: https://yourdomain.com
+BASE_URL=http://localhost:8000
 ```
 
 > **Không thêm** `ANONYMIZED_TELEMETRY` vào `.env` — sẽ gây lỗi Pydantic.
@@ -295,6 +315,9 @@ MAX_FILE_SIZE=52428800               # 50MB tối đa mỗi file
 | POST | `/api/auth/register` | — | `{email, full_name, password}` | Đăng ký |
 | POST | `/api/auth/login` | — | `{email, password}` | Đăng nhập → JWT |
 | GET  | `/api/auth/me` | JWT | — | Thông tin user hiện tại |
+| POST | `/api/auth/forgot-password` | — | `{email}` | Gửi link đặt lại mật khẩu |
+| POST | `/api/auth/reset-password` | — | `{token, new_password}` | Đặt lại mật khẩu bằng token |
+| GET  | `/reset-password` | — | — | Trang HTML đặt lại mật khẩu |
 
 ### Chatbots
 | Method | Endpoint | Auth | Body | Mô tả |
@@ -827,6 +850,17 @@ Giải pháp:
 ---
 
 ## 14. Changelog
+
+### v1.5 — Đặt lại mật khẩu qua Email
+- **[Auth] Forgot Password**: Luồng quên mật khẩu hoàn chỉnh — nhập email → nhận link → đặt mật khẩu mới
+- **[Backend] Model `PasswordResetToken`**: Bảng mới lưu token hash (SHA-256), tự hết hạn sau 1 giờ, chỉ dùng 1 lần
+- **[Backend] `POST /api/auth/forgot-password`**: Tạo token + gửi email trong background (không lộ email có tồn tại hay không)
+- **[Backend] `POST /api/auth/reset-password`**: Validate token → cập nhật mật khẩu → đánh dấu token đã dùng
+- **[Backend] `GET /reset-password`**: Serve trang HTML đặt lại mật khẩu
+- **[Service] `email.py`**: Gửi email HTML qua SMTP bất đồng bộ (`aiosmtplib`), hỗ trợ Gmail App Password
+- **[Config]** Thêm `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `BASE_URL` vào `.env`
+- **[Dashboard] Link "Quên mật khẩu?"**: Hiển thị dưới form đăng nhập, chuyển sang view nhập email
+- **[Dashboard] `reset-password.html`**: Trang riêng xử lý token từ URL, validate mật khẩu mới, redirect về login
 
 ### v1.4 — GitHub & Git Setup
 - **[Repo]** Publish lên GitHub: https://github.com/nirannguyen50/Chatbot-Assitant-AI

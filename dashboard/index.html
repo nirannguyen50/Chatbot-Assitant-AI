@@ -257,6 +257,12 @@
         <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <button class="btn btn-primary btn-full" id="login-btn" onclick="doLogin()">Đăng nhập</button>
+      <p style="text-align:center;margin-top:14px;">
+        <a href="#" onclick="showForgot();return false;"
+           style="font-size:13px;color:#4F46E5;text-decoration:none;">
+          Quên mật khẩu?
+        </a>
+      </p>
     </div>
 
     <!-- Register -->
@@ -274,6 +280,29 @@
         <input type="password" id="reg-pass" placeholder="Tối thiểu 6 ký tự" onkeydown="if(event.key==='Enter')doRegister()">
       </div>
       <button class="btn btn-primary btn-full" id="reg-btn" onclick="doRegister()">Tạo tài khoản</button>
+    </div>
+
+    <!-- Forgot password -->
+    <div id="tab-forgot" style="display:none">
+      <p style="font-size:13px;color:#64748b;margin-bottom:16px;">
+        Nhập email đã đăng ký. Chúng tôi sẽ gửi link đặt lại mật khẩu cho bạn.
+      </p>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="forgot-email" placeholder="you@company.com"
+               onkeydown="if(event.key==='Enter')doForgot()">
+      </div>
+      <button class="btn btn-primary btn-full" id="forgot-btn" onclick="doForgot()">Gửi link đặt lại</button>
+      <div id="forgot-msg" style="display:none;margin-top:14px;padding:12px;background:#f0fdf4;
+           border-radius:8px;border:1px solid #bbf7d0;font-size:13px;color:#166534;">
+        ✅ Nếu email tồn tại, bạn sẽ nhận được link đặt lại mật khẩu trong vài phút.
+      </div>
+      <p style="text-align:center;margin-top:14px;">
+        <a href="#" onclick="showLogin();return false;"
+           style="font-size:13px;color:#4F46E5;text-decoration:none;">
+          ← Quay lại đăng nhập
+        </a>
+      </p>
     </div>
   </div>
 </div>
@@ -446,7 +475,22 @@ window.onload = async () => {
 function switchTab(tab) {
   document.getElementById("tab-login").style.display    = tab === "login" ? "" : "none";
   document.getElementById("tab-register").style.display = tab === "register" ? "" : "none";
+  document.getElementById("tab-forgot").style.display   = "none";
   document.querySelectorAll(".auth-tab").forEach((el, i) => el.classList.toggle("active", (i === 0) === (tab === "login")));
+}
+
+function showForgot() {
+  document.getElementById("tab-login").style.display    = "none";
+  document.getElementById("tab-register").style.display = "none";
+  document.getElementById("tab-forgot").style.display   = "";
+  document.getElementById("forgot-msg").style.display   = "none";
+  document.getElementById("forgot-email").value         = "";
+  document.querySelectorAll(".auth-tab").forEach(el => el.classList.remove("active"));
+}
+
+function showLogin() {
+  switchTab("login");
+  document.querySelectorAll(".auth-tab")[0].classList.add("active");
 }
 
 async function doLogin() {
@@ -488,6 +532,18 @@ async function doRegister() {
   } else {
     showToast(res.data?.detail || "Đăng ký thất bại", true);
   }
+}
+
+async function doForgot() {
+  const email = document.getElementById("forgot-email").value.trim();
+  if (!email) { showToast("Vui lòng nhập email", true); return; }
+
+  setLoading("forgot-btn", true, "Đang gửi...");
+  const res = await api("POST", "/auth/forgot-password", { email });
+  setLoading("forgot-btn", false, "Gửi link đặt lại");
+
+  // Luôn hiện thông báo thành công dù email có tồn tại hay không
+  document.getElementById("forgot-msg").style.display = "";
 }
 
 async function fetchMe() {

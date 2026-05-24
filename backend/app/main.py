@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -58,6 +58,12 @@ if widget_dir.exists():
 upload_dir = Path(settings.UPLOAD_DIR)
 upload_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
+
+
+@app.get("/reset-password", include_in_schema=False)
+def reset_password_page():
+    page = BASE_DIR / "dashboard" / "reset-password.html"
+    return FileResponse(str(page))
 
 
 @app.get("/")
