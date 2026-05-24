@@ -430,14 +430,82 @@
 
       <!-- Tab: Embed -->
       <div id="dtab-embed" style="display:none">
-        <p style="margin-bottom:16px;color:#64748b;font-size:14px;">Copy đoạn code sau và dán vào trước thẻ <code>&lt;/body&gt;</code> trên website của bạn:</p>
-        <div class="code-block" id="embed-code"></div>
-        <button class="btn btn-ghost" onclick="copyEmbed()">📋 Copy code</button>
-        <div style="margin-top:24px;padding:16px;background:#fefce8;border-radius:10px;border:1px solid #fde68a;">
-          <p style="font-size:13px;color:#92400e;font-weight:500;">💡 Lưu ý bảo mật</p>
-          <p style="font-size:13px;color:#78350f;margin-top:4px;">API key chỉ hoạt động với domain của bạn. Nếu bị lộ, hãy tạo key mới từ nút <strong>Tạo API key mới</strong>.</p>
-          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="regenKey()">🔄 Tạo API key mới</button>
+
+        <!-- Platform selector -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;">
+          <button id="pbtn-web" class="btn btn-ghost" style="border:2px solid #6366f1;background:#eef2ff;color:#4338ca;font-weight:600;" onclick="switchEmbedPlatform('web')">🌐 Website</button>
+          <button id="pbtn-wordpress" class="btn btn-ghost" onclick="switchEmbedPlatform('wordpress')">WordPress</button>
+          <button id="pbtn-haravan" class="btn btn-ghost" onclick="switchEmbedPlatform('haravan')">Haravan</button>
         </div>
+
+        <!-- Panel: Website (default) -->
+        <div id="embed-panel-web">
+          <p style="margin-bottom:16px;color:#64748b;font-size:14px;">Copy đoạn code sau và dán vào trước thẻ <code>&lt;/body&gt;</code> trên website của bạn:</p>
+          <div class="code-block" id="embed-code"></div>
+          <button class="btn btn-ghost" onclick="copyEmbed('embed-code')">📋 Copy code</button>
+          <div style="margin-top:24px;padding:16px;background:#fefce8;border-radius:10px;border:1px solid #fde68a;">
+            <p style="font-size:13px;color:#92400e;font-weight:500;">💡 Lưu ý bảo mật</p>
+            <p style="font-size:13px;color:#78350f;margin-top:4px;">API key chỉ hoạt động với domain của bạn. Nếu bị lộ, hãy tạo key mới từ nút <strong>Tạo API key mới</strong>.</p>
+            <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="regenKey()">🔄 Tạo API key mới</button>
+          </div>
+        </div>
+
+        <!-- Panel: WordPress -->
+        <div id="embed-panel-wordpress" style="display:none">
+          <p style="margin-bottom:16px;color:#64748b;font-size:14px;">Chọn một trong hai cách sau để nhúng chatbot vào website WordPress:</p>
+
+          <div style="margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+            <p style="font-size:14px;font-weight:600;color:#1e293b;margin-bottom:10px;">Cách 1: Dùng plugin (khuyến nghị)</p>
+            <ol style="font-size:14px;color:#475569;margin:0;padding-left:20px;line-height:2.1;">
+              <li>Vào <strong>Plugins → Add New</strong>, tìm và cài plugin <strong>"Insert Headers and Footers"</strong></li>
+              <li>Vào <strong>Settings → Insert Headers and Footers</strong>, dán code vào ô <strong>"Scripts in Footer"</strong></li>
+              <li>Click <strong>Save</strong> rồi preview website để kiểm tra</li>
+            </ol>
+          </div>
+
+          <div style="margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+            <p style="font-size:14px;font-weight:600;color:#1e293b;margin-bottom:10px;">Cách 2: Chỉnh sửa theme trực tiếp (nâng cao)</p>
+            <ol style="font-size:14px;color:#475569;margin:0;padding-left:20px;line-height:2.1;">
+              <li>Vào <strong>Appearance → Theme File Editor</strong></li>
+              <li>Chọn file <code>footer.php</code>, tìm thẻ <code>&lt;/body&gt;</code></li>
+              <li>Dán code ngay trước <code>&lt;/body&gt;</code>, rồi click <strong>Update File</strong></li>
+            </ol>
+          </div>
+
+          <p style="margin-bottom:8px;font-size:14px;color:#64748b;">Đoạn code cần dán:</p>
+          <div class="code-block" id="embed-code-wp"></div>
+          <button class="btn btn-ghost" onclick="copyEmbed('embed-code-wp')">📋 Copy code</button>
+          <div style="margin-top:24px;padding:16px;background:#fefce8;border-radius:10px;border:1px solid #fde68a;">
+            <p style="font-size:13px;color:#92400e;font-weight:500;">💡 Lưu ý bảo mật</p>
+            <p style="font-size:13px;color:#78350f;margin-top:4px;">API key chỉ hoạt động với domain của bạn. Nếu bị lộ, hãy tạo key mới từ nút <strong>Tạo API key mới</strong>.</p>
+            <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="regenKey()">🔄 Tạo API key mới</button>
+          </div>
+        </div>
+
+        <!-- Panel: Haravan -->
+        <div id="embed-panel-haravan" style="display:none">
+          <p style="margin-bottom:16px;color:#64748b;font-size:14px;">Thực hiện theo các bước sau để nhúng chatbot vào gian hàng Haravan:</p>
+
+          <div style="margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+            <ol style="font-size:14px;color:#475569;margin:0;padding-left:20px;line-height:2.2;">
+              <li>Đăng nhập Haravan, vào <strong>Kênh bán hàng → Online Store → Themes</strong></li>
+              <li>Bấm <strong>"..."</strong> bên cạnh theme đang dùng → chọn <strong>Edit code</strong></li>
+              <li>Trong danh sách file bên trái, mở file <code>theme.liquid</code></li>
+              <li>Tìm thẻ <code>&lt;/body&gt;</code> ở cuối file, dán code ngay phía trên</li>
+              <li>Click <strong>Save</strong> → mở gian hàng để kiểm tra widget</li>
+            </ol>
+          </div>
+
+          <p style="margin-bottom:8px;font-size:14px;color:#64748b;">Đoạn code cần dán:</p>
+          <div class="code-block" id="embed-code-haravan"></div>
+          <button class="btn btn-ghost" onclick="copyEmbed('embed-code-haravan')">📋 Copy code</button>
+          <div style="margin-top:24px;padding:16px;background:#fefce8;border-radius:10px;border:1px solid #fde68a;">
+            <p style="font-size:13px;color:#92400e;font-weight:500;">💡 Lưu ý bảo mật</p>
+            <p style="font-size:13px;color:#78350f;margin-top:4px;">API key chỉ hoạt động với domain của bạn. Nếu bị lộ, hãy tạo key mới từ nút <strong>Tạo API key mới</strong>.</p>
+            <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="regenKey()">🔄 Tạo API key mới</button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -739,8 +807,10 @@ function openBotDetail(bot) {
 
   // Embed code
   const widgetUrl = `${window.location.origin}/widget/chatbot-widget.js`.replace("dashboard/", "");
-  document.getElementById("embed-code").textContent =
-    `<!-- Chatbot Widget -->\n<script\n  src="${widgetUrl}"\n  data-api-key="${bot.api_key}"\n  data-api-url="${window.location.protocol}//${window.location.hostname}:8000">\n<\/script>`;
+  const embedCode = `<!-- Chatbot Widget -->\n<script\n  src="${widgetUrl}"\n  data-api-key="${bot.api_key}"\n  data-api-url="${window.location.protocol}//${window.location.hostname}:8000">\n<\/script>`;
+  document.getElementById("embed-code").textContent = embedCode;
+  document.getElementById("embed-code-wp").textContent = embedCode;
+  document.getElementById("embed-code-haravan").textContent = embedCode;
 
   switchDetailTab("docs");
   showPanel("detail");
@@ -1017,8 +1087,27 @@ async function sendTestChat() {
 }
 
 // ─── Embed ─────────────────────────────────────────────────────────────────
-function copyEmbed() {
-  navigator.clipboard.writeText(document.getElementById("embed-code").textContent)
+function switchEmbedPlatform(platform) {
+  ["web","wordpress","haravan"].forEach(p => {
+    document.getElementById("embed-panel-" + p).style.display = p === platform ? "" : "none";
+    const btn = document.getElementById("pbtn-" + p);
+    if (p === platform) {
+      btn.style.border = "2px solid #6366f1";
+      btn.style.background = "#eef2ff";
+      btn.style.color = "#4338ca";
+      btn.style.fontWeight = "600";
+    } else {
+      btn.style.border = "";
+      btn.style.background = "";
+      btn.style.color = "";
+      btn.style.fontWeight = "";
+    }
+  });
+}
+
+function copyEmbed(id) {
+  const codeId = id || "embed-code";
+  navigator.clipboard.writeText(document.getElementById(codeId).textContent)
     .then(() => showToast("Đã copy embed code!"))
     .catch(() => showToast("Không copy được, hãy copy thủ công", true));
 }

@@ -595,7 +595,14 @@ Khi người dùng quên mật khẩu:
 ```
 
 ### Lấy embed code tự động
-Dashboard → Chọn chatbot → Tab **"🔗 Nhúng Widget"** → Copy code
+Dashboard → Chọn chatbot → Tab **"🔗 Nhúng Widget"** → Chọn platform (Website / WordPress / Haravan) → Copy code
+
+### Hướng dẫn cài đặt theo platform
+| Platform | Cách nhúng |
+|----------|-----------|
+| Website thông thường | Dán script tag trước `</body>` |
+| WordPress | Plugin "Insert Headers and Footers" (khuyến nghị) hoặc chỉnh `footer.php` |
+| Haravan | Vào Theme → Edit code → `theme.liquid` → dán trước `</body>` |
 
 ### Widget hỗ trợ
 | Tính năng | Chi tiết |
@@ -891,6 +898,11 @@ Kiểm tra theo thứ tự:
 ---
 
 ## 14. Changelog
+
+### v1.8 — Widget Installer Guides
+- **[Dashboard] Platform Selector**: Tab "Nhúng Widget" nay có 3 platform — Website, WordPress, Haravan
+- **[Dashboard] WordPress Guide**: Hướng dẫn 2 cách — plugin "Insert Headers and Footers" (khuyến nghị) và chỉnh sửa `footer.php` trực tiếp
+- **[Dashboard] Haravan Guide**: Hướng dẫn 5 bước cụ thể — vào Theme Editor, mở `theme.liquid`, dán code trước `</body>`
 
 ### v1.7 — Conversation Analytics Dashboard
 - **[Dashboard] Tab Analytics**: Tab mới trong chatbot detail hiển thị 4 stat cards + bar chart theo ngày
