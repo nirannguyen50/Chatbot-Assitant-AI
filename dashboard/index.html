@@ -230,6 +230,7 @@
   .hist-msg.user { align-self: flex-end; background: #4F46E5; color: #fff; border-bottom-right-radius: 3px; }
   .hist-msg.bot  { align-self: flex-start; background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 3px; }
   .conv-loading  { color: #94a3b8; font-size: 13px; font-style: italic; padding: 4px 0; }
+  .conv-lead { font-size: 12px; color: #6366f1; background: #eef2ff; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js" onload="marked.setOptions({breaks:true,gfm:true})"></script>
 </head>
@@ -450,6 +451,10 @@
 <script>
 // ─── Config ───────────────────────────────────────────────────────────────
 const API = "http://localhost:8000/api";
+
+function escHtml(str) {
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
 
 // ─── State ────────────────────────────────────────────────────────────────
 let token = localStorage.getItem("token") || "";
@@ -1135,10 +1140,14 @@ function renderHistory(convs) {
     const item = document.createElement("div");
     item.className = "conv-item";
     item.id = `conv-item-${conv.id}`;
+    const leadBadge = conv.lead_name
+      ? `<span class="conv-lead" title="${escHtml(conv.lead_email || '')}">👤 ${escHtml(conv.lead_name)}${conv.lead_email ? ' · ' + escHtml(conv.lead_email) : ''}</span>`
+      : '';
     item.innerHTML = `
       <div class="conv-header" onclick="toggleConv(${conv.id})">
         <span class="conv-icon">💬</span>
         <span class="conv-date">${date}</span>
+        ${leadBadge}
         <span class="conv-ago">${ago}</span>
         <span class="conv-count">${conv.message_count} tin</span>
         <button class="conv-del" onclick="deleteConv(${conv.id}, event)" title="Xóa">🗑️</button>

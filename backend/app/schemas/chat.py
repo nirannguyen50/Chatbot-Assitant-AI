@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 
 
@@ -18,3 +18,10 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     summary: Optional[str] = None  # Trả về summary mới nếu vừa tóm tắt
+
+
+class LeadCreate(BaseModel):
+    session_id: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=100)
+    email: EmailStr
+    phone: Optional[str] = Field(default=None, max_length=20)

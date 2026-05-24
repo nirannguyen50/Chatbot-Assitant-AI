@@ -892,6 +892,15 @@ Kiểm tra theo thứ tự:
 
 ## 14. Changelog
 
+### v1.6 — Lead Capture Form trong Widget
+- **[Widget] Lead Form**: Trước tin nhắn đầu tiên, widget hiện form thu thập Tên + Email (bắt buộc) + Số điện thoại (tùy chọn)
+- **[Backend] Model `Lead`**: Bảng mới lưu lead, gắn với `session_id` (UNIQUE), cascade xóa theo chatbot
+- **[Backend] `POST /api/widget/{api_key}/lead`**: Endpoint public nhận lead info, rate limit 10/minute, validate email qua Pydantic `EmailStr`
+- **[Backend] `GET /api/chatbots/{id}/conversations`**: Enriched với `lead_name`, `lead_email`, `lead_phone` qua LEFT JOIN
+- **[Widget] localStorage**: `sessionId` được persist qua refresh; flag `cw_lead_{key}` ngăn form hiện lại sau khi đã submit
+- **[Dashboard] History tab**: Mỗi conversation row hiện badge `👤 Tên · email` nếu có lead
+- **[Security] PII note**: Bảng `leads` chứa dữ liệu cá nhân (tên, email, phone) — khi deploy production cần tuân thủ chính sách bảo mật dữ liệu
+
 ### v1.5 — Đặt lại mật khẩu qua Email
 - **[Auth] Forgot Password**: Luồng quên mật khẩu hoàn chỉnh — nhập email → nhận link → đặt mật khẩu mới
 - **[Backend] Model `PasswordResetToken`**: Bảng mới lưu token hash (SHA-256), tự hết hạn sau 1 giờ, chỉ dùng 1 lần

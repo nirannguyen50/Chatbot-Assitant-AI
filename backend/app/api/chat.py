@@ -14,7 +14,8 @@ from app.core.limiter import limiter
 from app.database import get_db
 from app.models.chatbot import Chatbot
 from app.models.conversation import Conversation, ConvMessage
-from app.schemas.chat import ChatRequest, ChatResponse
+from app.models.lead import Lead
+from app.schemas.chat import ChatRequest, ChatResponse, LeadCreate
 from app.services.rag import get_rag_answer, get_rag_answer_stream
 
 router = APIRouter(tags=["Chat"])
@@ -54,6 +55,33 @@ def _save_messages(
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@router.post("/widget/{api_key}/lead")
+@limiter.limit("10/minute")
+async def widget_submit_lead(
+    api_key: str,
+    request: Request,
+    payload: LeadCreate,
+    db: Session = Depends(get_db),
+):
+    """Widget submit thông tin lead trước khi bắt đầu chat."""
+    bot = _get_chatbot_by_key(api_key, db)
+
+    existing = db.query(Lead).filter(Lead.session_id == payload.session_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Session này đã có thông tin liên hệ")
+
+    lead = Lead(
+        chatbot_id=bot.id,
+        session_id=payload.session_id,
+        name=payload.name,
+        email=payload.email,
+        phone=payload.phone,
+    )
+    db.add(lead)
+    db.commit()
+    return {"ok": True}
+
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(

@@ -24,7 +24,14 @@
   let config  = { name: "Chatbot", welcome_message: "Xin chào! Tôi có thể giúp gì?", primary_color: "#4F46E5" };
   let history = [];
   let summary = "";
-  let sessionId       = genId();
+
+  // Persist sessionId across page refreshes so lead isn't re-asked
+  const LS_SESSION_KEY = `cw_session_${API_KEY}`;
+  const LS_LEAD_KEY    = `cw_lead_${API_KEY}`;
+  let sessionId = localStorage.getItem(LS_SESSION_KEY) || genId();
+  if (!localStorage.getItem(LS_SESSION_KEY)) localStorage.setItem(LS_SESSION_KEY, sessionId);
+  let leadSubmitted = !!localStorage.getItem(LS_LEAD_KEY);
+
   let attachedImgUrl  = "";   // URL ảnh đã upload, chờ gửi
   let isOpen    = false;
   let isLoading = false;
@@ -155,6 +162,31 @@
 
     .cw-cursor::after { content: "▌"; animation: cw-blink 0.7s steps(1) infinite; }
     @keyframes cw-blink { 50% { opacity: 0; } }
+
+    /* ── Lead form ── */
+    #cw-lead-form {
+      flex: 1; padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 12px;
+      overflow-y: auto;
+    }
+    #cw-lead-form.cw-hidden { display: none; }
+    #cw-lead-intro { font-size: 13px; color: #475569; line-height: 1.5; }
+    .cw-field { display: flex; flex-direction: column; gap: 4px; }
+    .cw-field label { font-size: 12px; font-weight: 600; color: #374151; }
+    .cw-field label span { color: #ef4444; margin-left: 2px; }
+    .cw-field input {
+      border: 1.5px solid #e2e8f0; border-radius: 8px;
+      padding: 8px 11px; font-size: 14px; outline: none; transition: border-color .2s;
+    }
+    .cw-field input:focus { border-color: var(--cw-color); }
+    .cw-field input.cw-error { border-color: #ef4444; }
+    .cw-field-hint { font-size: 11px; color: #94a3b8; }
+    #cw-lead-submit {
+      margin-top: 4px; padding: 10px; border: none; border-radius: 10px; cursor: pointer;
+      background: var(--cw-color); color: #fff; font-size: 14px; font-weight: 600;
+      transition: opacity .2s;
+    }
+    #cw-lead-submit:disabled { opacity: .5; cursor: not-allowed; }
+    #cw-lead-error { font-size: 12px; color: #ef4444; text-align: center; min-height: 16px; }
 
     @media (max-width: 420px) {
       #cw-window { right: 8px; left: 8px; width: auto; bottom: 84px; }
@@ -418,6 +450,23 @@
           </div>
           <button class="cw-close" id="cw-close" aria-label="Đóng">✕</button>
         </div>
+        <div id="cw-lead-form" class="cw-hidden" role="form" aria-label="Thông tin liên hệ">
+          <p id="cw-lead-intro">Để hỗ trợ bạn tốt hơn, vui lòng cho biết thông tin liên hệ 😊</p>
+          <div class="cw-field">
+            <label for="cw-lead-name">Họ tên<span>*</span></label>
+            <input id="cw-lead-name" type="text" placeholder="Nguyễn Văn A" autocomplete="name" maxlength="100">
+          </div>
+          <div class="cw-field">
+            <label for="cw-lead-email">Email<span>*</span></label>
+            <input id="cw-lead-email" type="email" placeholder="email@example.com" autocomplete="email" maxlength="200">
+          </div>
+          <div class="cw-field">
+            <label for="cw-lead-phone">Số điện thoại <span style="color:#94a3b8;font-weight:400">(tùy chọn)</span></label>
+            <input id="cw-lead-phone" type="tel" placeholder="0901 234 567" autocomplete="tel" maxlength="20">
+          </div>
+          <div id="cw-lead-error"></div>
+          <button id="cw-lead-submit">Bắt đầu chat →</button>
+        </div>
         <div id="cw-messages"></div>
         <div id="cw-footer">
           <div id="cw-attach-bar">
@@ -435,7 +484,10 @@
     `;
 
     document.body.appendChild(root);
-    appendMessage("bot", config.welcome_message);
+    // Welcome message hiện ngay nếu đã submit lead, hoặc sau khi submit lead form
+    if (leadSubmitted) {
+      appendMessage("bot", config.welcome_message);
+    }
 
     // ── Element refs ─────────────────────────────────────────────────────
     const btn        = root.querySelector("#cw-btn");
@@ -448,6 +500,14 @@
     const attachThumb = root.querySelector("#cw-attach-thumb");
     const attachName  = root.querySelector("#cw-attach-name");
     const attachRm    = root.querySelector("#cw-attach-rm");
+    const leadForm    = root.querySelector("#cw-lead-form");
+    const leadNameEl  = root.querySelector("#cw-lead-name");
+    const leadEmailEl = root.querySelector("#cw-lead-email");
+    const leadPhoneEl = root.querySelector("#cw-lead-phone");
+    const leadSubmitEl = root.querySelector("#cw-lead-submit");
+    const leadErrorEl  = root.querySelector("#cw-lead-error");
+    const messages    = root.querySelector("#cw-messages");
+    const footer      = root.querySelector("#cw-footer");
 
     // Hidden file input
     const fileInput = document.createElement("input");
@@ -456,12 +516,86 @@
     fileInput.style.display = "none";
     document.body.appendChild(fileInput);
 
+    function showChat() {
+      leadForm.classList.add("cw-hidden");
+      messages.style.display = "";
+      footer.style.display = "";
+    }
+
+    function showLeadForm() {
+      messages.style.display = "none";
+      footer.style.display = "none";
+      leadForm.classList.remove("cw-hidden");
+      setTimeout(() => leadNameEl.focus(), 200);
+    }
+
+    // ── Lead form submit ──────────────────────────────────────────────────
+    async function submitLead() {
+      const name  = leadNameEl.value.trim();
+      const email = leadEmailEl.value.trim();
+      const phone = leadPhoneEl.value.trim();
+
+      leadErrorEl.textContent = "";
+      leadNameEl.classList.remove("cw-error");
+      leadEmailEl.classList.remove("cw-error");
+
+      if (!name) {
+        leadNameEl.classList.add("cw-error");
+        leadErrorEl.textContent = "Vui lòng nhập họ tên.";
+        leadNameEl.focus();
+        return;
+      }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        leadEmailEl.classList.add("cw-error");
+        leadErrorEl.textContent = "Email không hợp lệ.";
+        leadEmailEl.focus();
+        return;
+      }
+
+      leadSubmitEl.disabled = true;
+      leadSubmitEl.textContent = "Đang xử lý…";
+
+      try {
+        const res = await fetch(`${API_URL}/api/widget/${API_KEY}/lead`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, name, email, phone: phone || null }),
+        });
+
+        if (!res.ok && res.status !== 400) {
+          throw new Error("server_error");
+        }
+
+        localStorage.setItem(LS_LEAD_KEY, "1");
+        leadSubmitted = true;
+        showChat();
+        appendMessage("bot", `Xin chào ${escapeHtml(name)}! 👋 ${escapeHtml(config.welcome_message)}`);
+        setTimeout(() => input.focus(), 200);
+
+      } catch (_) {
+        leadErrorEl.textContent = "Có lỗi xảy ra. Vui lòng thử lại.";
+        leadSubmitEl.disabled = false;
+        leadSubmitEl.textContent = "Bắt đầu chat →";
+      }
+    }
+
+    leadSubmitEl.addEventListener("click", submitLead);
+    [leadNameEl, leadEmailEl, leadPhoneEl].forEach(el => {
+      el.addEventListener("keydown", e => { if (e.key === "Enter") submitLead(); });
+    });
+
     // ── Toggle open/close ─────────────────────────────────────────────────
     function toggle() {
       isOpen = !isOpen;
       win.classList.toggle("cw-hidden", !isOpen);
       btn.textContent = isOpen ? "✕" : "💬";
-      if (isOpen) setTimeout(() => input.focus(), 200);
+      if (isOpen) {
+        if (!leadSubmitted) {
+          showLeadForm();
+        } else {
+          setTimeout(() => input.focus(), 200);
+        }
+      }
     }
     btn.addEventListener("click", toggle);
     close.addEventListener("click", toggle);

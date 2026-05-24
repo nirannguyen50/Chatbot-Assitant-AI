@@ -3,7 +3,7 @@ Conversation history API — chỉ dành cho chủ chatbot xem lại.
 """
 from __future__ import annotations
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.chatbot import Chatbot
 from app.models.conversation import Conversation, ConvMessage
+from app.models.lead import Lead
 from app.core.deps import get_current_user
 from app.models.user import User
 
@@ -34,6 +35,9 @@ class ConversationOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     message_count: int
+    lead_name: Optional[str] = None
+    lead_email: Optional[str] = None
+    lead_phone: Optional[str] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -59,8 +63,9 @@ def list_conversations(
     """Danh sách các phiên hội thoại (mới nhất lên trước)."""
     _check_owner(chatbot_id, current_user, db)
 
-    convs = (
-        db.query(Conversation)
+    rows = (
+        db.query(Conversation, Lead)
+        .outerjoin(Lead, Lead.session_id == Conversation.session_id)
         .filter(Conversation.chatbot_id == chatbot_id)
         .options(joinedload(Conversation.messages))
         .order_by(Conversation.updated_at.desc())
@@ -75,8 +80,11 @@ def list_conversations(
             created_at=c.created_at,
             updated_at=c.updated_at,
             message_count=len(c.messages),
+            lead_name=lead.name if lead else None,
+            lead_email=lead.email if lead else None,
+            lead_phone=lead.phone if lead else None,
         )
-        for c in convs
+        for c, lead in rows
     ]
 
 
