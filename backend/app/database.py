@@ -21,5 +21,5 @@ def get_db():
 
 
 def create_tables():
-    from app.models import user, chatbot, document, conversation  # noqa: F401 - register models
+    from app.models import user, chatbot, document, conversation, password_reset  # noqa: F401
     Base.metadata.create_all(bind=engine)
