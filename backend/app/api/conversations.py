@@ -8,7 +8,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.database import get_db
 from app.models.chatbot import Chatbot
@@ -50,8 +50,16 @@ class AnalyticsOut(BaseModel):
     total_conversations: int
     total_messages: int
     total_leads: int
+    total_unanswered: int
     avg_messages_per_conv: float
     daily_conversations: List[DailyCount]
+
+
+class UnansweredQuestion(BaseModel):
+    question: str
+    asked_at: datetime
+    conv_id: int
+    session_id: str
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -168,6 +176,16 @@ def get_analytics(
         Lead.chatbot_id == chatbot_id
     ).scalar() or 0
 
+    total_unanswered = (
+        db.query(func.count(ConvMessage.id))
+        .join(Conversation, ConvMessage.conversation_id == Conversation.id)
+        .filter(
+            Conversation.chatbot_id == chatbot_id,
+            ConvMessage.is_unanswered == True,
+        )
+        .scalar() or 0
+    )
+
     avg_msgs = round(total_messages / total_conversations, 1) if total_conversations else 0.0
 
     since = (datetime.utcnow().date() - timedelta(days=days - 1))
@@ -195,6 +213,57 @@ def get_analytics(
         total_conversations=total_conversations,
         total_messages=total_messages,
         total_leads=total_leads,
+        total_unanswered=total_unanswered,
         avg_messages_per_conv=avg_msgs,
         daily_conversations=daily,
     )
+
+
+@router.get("/{chatbot_id}/unanswered", response_model=List[UnansweredQuestion])
+def get_unanswered_questions(
+    chatbot_id: int,
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Danh sach cau hoi ma bot khong tra loi duoc."""
+    _check_owner(chatbot_id, current_user, db)
+
+    # alias de join conv_messages 2 lan (user question + unanswered assistant reply)
+    AssistantMsg = aliased(ConvMessage)
+    UserMsg = aliased(ConvMessage)
+
+    rows = (
+        db.query(
+            UserMsg.content.label("question"),
+            UserMsg.created_at.label("asked_at"),
+            Conversation.id.label("conv_id"),
+            Conversation.session_id.label("session_id"),
+        )
+        .select_from(AssistantMsg)
+        .join(Conversation, AssistantMsg.conversation_id == Conversation.id)
+        .join(
+            UserMsg,
+            (UserMsg.conversation_id == AssistantMsg.conversation_id)
+            & (UserMsg.role == "user")
+            & (UserMsg.id == AssistantMsg.id - 1),
+        )
+        .filter(
+            Conversation.chatbot_id == chatbot_id,
+            AssistantMsg.is_unanswered == True,
+            AssistantMsg.role == "assistant",
+        )
+        .order_by(AssistantMsg.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        UnansweredQuestion(
+            question=r.question,
+            asked_at=r.asked_at,
+            conv_id=r.conv_id,
+            session_id=r.session_id,
+        )
+        for r in rows
+    ]

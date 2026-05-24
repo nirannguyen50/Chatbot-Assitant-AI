@@ -400,6 +400,7 @@ pending → processing → ready (chunk_count > 0)
 | GET    | `/api/chatbots/{id}/conversations` | JWT | Danh sách phiên (mới nhất lên trước, tối đa 200) |
 | GET    | `/api/chatbots/{id}/conversations/{cid}/messages` | JWT | Toàn bộ tin nhắn của 1 phiên |
 | DELETE | `/api/chatbots/{id}/conversations/{cid}` | JWT | Xóa 1 phiên hội thoại |
+| GET    | `/api/chatbots/{id}/unanswered?limit=50` | JWT | Danh sách câu hỏi bot không trả lời được (tối đa 200) |
 
 **Conversation response:**
 ```json
@@ -899,6 +900,14 @@ Kiểm tra theo thứ tự:
 
 ## 14. Changelog
 
+### v1.9 — "Bot khong biet" Detector
+
+- **[Backend] `is_unanswered` flag**: Moi assistant message duoc tu dong danh dau `is_unanswered=True` neu bot tra loi kieu "khong co thong tin / ngoai pham vi / unable to answer" (regex pattern, case-insensitive, ho tro ca tieng Viet va tieng Anh)
+- **[Backend] `GET /api/chatbots/{id}/unanswered`**: Endpoint moi tra ve danh sach cau hoi cua khach ma bot khong tra loi duoc, kem ngay gio va conv_id de truy ve history
+- **[Backend] `GET /api/chatbots/{id}/analytics`**: Them field `total_unanswered` vao response
+- **[Dashboard] Stat card "Chua tra loi"**: The thu 5 trong analytics cards, mau do nhat, hien tong so cau hoi chua duoc tra loi
+- **[Dashboard] Section ❓**: Ben duoi chart analytics, hien danh sach cau hoi cu the chua duoc tra loi, kem nut "Xem" mo thang conversation tuong ung trong tab Lich su
+
 ### v1.8 — Widget Installer Guides
 - **[Dashboard] Platform Selector**: Tab "Nhúng Widget" nay có 3 platform — Website, WordPress, Haravan
 - **[Dashboard] WordPress Guide**: Hướng dẫn 2 cách — plugin "Insert Headers and Footers" (khuyến nghị) và chỉnh sửa `footer.php` trực tiếp
@@ -906,7 +915,7 @@ Kiểm tra theo thứ tự:
 
 ### v1.7 — Conversation Analytics Dashboard
 - **[Dashboard] Tab Analytics**: Tab mới trong chatbot detail hiển thị 4 stat cards + bar chart theo ngày
-- **[Backend] `GET /api/chatbots/{id}/analytics?days=7`**: Trả về tổng conversations, messages, leads, avg msgs/conv và daily breakdown
+- **[Backend] `GET /api/chatbots/{id}/analytics?days=7`**: Trả về tổng conversations, messages, leads, unanswered questions, avg msgs/conv và daily breakdown
 - **[Frontend] Chart.js v4**: Bar chart số conversations mỗi ngày, toggle 7/30 ngày
 - **[Security]** Endpoint chỉ dành cho owner (JWT), `days` param clamp về [7, 90]
 

@@ -233,9 +233,12 @@
   .conv-lead { font-size: 12px; color: #6366f1; background: #eef2ff; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── Analytics ── */
-  .analytics-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  @media (max-width: 700px) { .analytics-cards { grid-template-columns: repeat(2, 1fr); } }
+  .analytics-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 800px) { .analytics-cards { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 500px) { .analytics-cards { grid-template-columns: repeat(2, 1fr); } }
   .stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 16px; text-align: center; }
+  .stat-card.stat-danger { border-color: #fecaca; background: #fff5f5; }
+  .stat-card.stat-danger .stat-val { color: #dc2626; }
   .stat-card .stat-val { font-size: 32px; font-weight: 700; color: #1e293b; line-height: 1; }
   .stat-card .stat-label { font-size: 12px; color: #64748b; margin-top: 6px; }
   .analytics-range { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -243,6 +246,14 @@
   .range-btn.active { background: var(--primary, #4F46E5); color: #fff; border-color: var(--primary, #4F46E5); }
   .analytics-chart-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
   .analytics-chart-wrap h4 { font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 16px; }
+  .unanswered-wrap { background: #fff; border: 1px solid #fecaca; border-radius: 12px; padding: 20px; margin-top: 24px; }
+  .unanswered-wrap h4 { font-size: 14px; font-weight: 600; color: #dc2626; margin-bottom: 14px; }
+  .unanswered-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+  .unanswered-item:last-child { border-bottom: none; }
+  .unanswered-q { flex: 1; font-size: 14px; color: #1e293b; line-height: 1.5; }
+  .unanswered-meta { font-size: 12px; color: #94a3b8; white-space: nowrap; }
+  .unanswered-link { font-size: 12px; color: #6366f1; cursor: pointer; white-space: nowrap; text-decoration: underline; }
+  .unanswered-empty { font-size: 14px; color: #64748b; text-align: center; padding: 20px 0; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js" onload="marked.setOptions({breaks:true,gfm:true})"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
@@ -421,10 +432,15 @@
           <div class="stat-card"><div class="stat-val" id="stat-msgs">—</div><div class="stat-label">Tin nhắn</div></div>
           <div class="stat-card"><div class="stat-val" id="stat-leads">—</div><div class="stat-label">Leads</div></div>
           <div class="stat-card"><div class="stat-val" id="stat-avg">—</div><div class="stat-label">Avg msgs/conv</div></div>
+          <div class="stat-card stat-danger"><div class="stat-val" id="stat-unanswered">—</div><div class="stat-label">Chưa trả lời</div></div>
         </div>
         <div class="analytics-chart-wrap">
           <h4 id="analytics-chart-title">Conversations theo ngày</h4>
           <canvas id="analytics-chart" height="100"></canvas>
+        </div>
+        <div class="unanswered-wrap" id="unanswered-wrap" style="display:none">
+          <h4>❓ Câu hỏi chưa được trả lời (<span id="unanswered-count">0</span>)</h4>
+          <div id="unanswered-list"></div>
         </div>
       </div>
 
@@ -1358,10 +1374,13 @@ async function loadAnalytics(days) {
   const d = res.data;
 
   // Stat cards
-  document.getElementById("stat-convs").textContent  = d.total_conversations;
-  document.getElementById("stat-msgs").textContent   = d.total_messages;
-  document.getElementById("stat-leads").textContent  = d.total_leads;
-  document.getElementById("stat-avg").textContent    = d.avg_messages_per_conv;
+  document.getElementById("stat-convs").textContent      = d.total_conversations;
+  document.getElementById("stat-msgs").textContent       = d.total_messages;
+  document.getElementById("stat-leads").textContent      = d.total_leads;
+  document.getElementById("stat-avg").textContent        = d.avg_messages_per_conv;
+  document.getElementById("stat-unanswered").textContent = d.total_unanswered;
+
+  loadUnanswered();
 
   document.getElementById("analytics-chart-title").textContent =
     `Conversations theo ngày (${days} ngày gần nhất)`;
@@ -1399,6 +1418,49 @@ async function loadAnalytics(days) {
       }
     }
   });
+}
+
+// ─── Unanswered Questions ────────────────────────────────────────────────────
+async function loadUnanswered() {
+  if (!currentBot) return;
+  const wrap = document.getElementById("unanswered-wrap");
+  const list = document.getElementById("unanswered-list");
+  const countEl = document.getElementById("unanswered-count");
+
+  const res = await api("GET", `/chatbots/${currentBot.id}/unanswered?limit=50`);
+  if (!res.ok) return;
+
+  const items = res.data;
+  countEl.textContent = items.length;
+
+  if (items.length === 0) {
+    wrap.style.display = "none";
+    return;
+  }
+
+  wrap.style.display = "block";
+  list.innerHTML = items.map(item => {
+    const q = item.question.length > 120 ? item.question.slice(0, 120) + "…" : item.question;
+    const dt = new Date(item.asked_at);
+    const meta = `${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")} ${dt.getHours().toString().padStart(2,"0")}:${dt.getMinutes().toString().padStart(2,"0")}`;
+    return `<div class="unanswered-item">
+      <div class="unanswered-q">${escHtml(q)}</div>
+      <span class="unanswered-meta">${meta}</span>
+      <span class="unanswered-link" onclick="viewConversation(${item.conv_id})">Xem</span>
+    </div>`;
+  }).join("");
+}
+
+function viewConversation(convId) {
+  switchDetailTab("history");
+  setTimeout(() => {
+    const el = document.getElementById(`conv-item-${convId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const header = el.querySelector(".conv-header");
+      if (header) header.click();
+    }
+  }, 400);
 }
 </script>
 </body>

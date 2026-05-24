@@ -3,6 +3,7 @@ Public chat endpoint — xác thực bằng API key.
 Hỗ trợ Running Summary + lưu Conversation History vào DB.
 """
 import json
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -19,6 +20,28 @@ from app.schemas.chat import ChatRequest, ChatResponse, LeadCreate
 from app.services.rag import get_rag_answer, get_rag_answer_stream
 
 router = APIRouter(tags=["Chat"])
+
+# ── Unanswered detection ──────────────────────────────────────────────────────
+
+_UNANSWERED_RE = re.compile(
+    r"kh(?:ô|o)ng c(?:ó|o) th(?:ô|o)ng tin"
+    r"|kh(?:ô|o)ng t(?:ì|i)m th(?:ấ|a)y th(?:ô|o)ng tin"
+    r"|kh(?:ô|o)ng c(?:ó|o) trong t(?:à|a)i li(?:ệ|e)u"
+    r"|t(?:à|a)i li(?:ệ|e)u kh(?:ô|o)ng (?:đ|d)(?:ề|e) c(?:ậ|a)p"
+    r"|ch(?:ư|u)a c(?:ó|o) th(?:ô|o)ng tin"
+    r"|ngo(?:à|a)i ph(?:ạ|a)m vi"
+    r"|kh(?:ô|o)ng th(?:ể|e) tr(?:ả|a) l(?:ờ|o)i"
+    r"|xin l(?:ỗ|o)i.{0,30}kh(?:ô|o)ng (?:c(?:ó|o)|th(?:ể|e)|bi(?:ế|e)t)"
+    r"|i don.{0,2}t have.{0,10}information"
+    r"|i.{0,4}m not sure"
+    r"|not (?:in|within).{0,20}(?:document|knowledge|training)"
+    r"|unable to (?:answer|find|provide)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _is_unanswered(text: str) -> bool:
+    return bool(_UNANSWERED_RE.search(text))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -49,7 +72,12 @@ def _save_messages(
         db.flush()  # lấy conv.id trước khi commit
 
     db.add(ConvMessage(conversation_id=conv.id, role="user", content=user_message))
-    db.add(ConvMessage(conversation_id=conv.id, role="assistant", content=bot_answer))
+    db.add(ConvMessage(
+        conversation_id=conv.id,
+        role="assistant",
+        content=bot_answer,
+        is_unanswered=_is_unanswered(bot_answer),
+    ))
     conv.updated_at = datetime.utcnow()
     db.commit()
 
